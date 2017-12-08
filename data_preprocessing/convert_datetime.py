@@ -1,19 +1,19 @@
-"""
-align_vid_ecog.py converts vid_real_time files to a more appropriate format for indexing
+import pandas as pd
+import sys
+import argparse
+from argparse import RawTextHelpFormatter
+
+# parser = argparse.ArgumentParser(description="")
+
+"""convert_datetime.py converts vid_real_time files to a more appropriate format for indexing
 final table is of this form
 ------------------------------
 |patient|session|vid|datetime|
 |  ...  |  ...  |...|  ...   |
-
-
-Usage:  python align_vid_ecog.py /data1/sharedata/vid_real_time/a86a4375_2 output.csv
-
-
-"""
-
-
-import pandas as pd
-import sys
+Usage:  python convert_datetime.py /data1/sharedata/vid_real_time/a86a4375_2 output.csv"""
+#formatter_class=RawTextHelpFormatter)
+#parser = argparse.ArgumentParser()
+#parser.add_argument(help="help")
 
 # reading the file for this session
 session_name = sys.argv[1]
