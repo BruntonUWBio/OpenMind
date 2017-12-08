@@ -2,7 +2,9 @@ To obtain real times in the open face features, we need to add the beginning rea
 
 This can be obtained by merging the features file with the video names file.
 
-First run python align_ecog_vis.py session_name.csv output.csv to arrange the indeces. 
+First run python convert_datetime.py patient_session.csv datetime_patient_session.csv to arrange the indeces. 
+
+Then run python join_realtime.py patient_session features_patient_session.csv
 
 ```
 features = pd.read_csv('~/features.csv')
