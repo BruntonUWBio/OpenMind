@@ -1,19 +1,24 @@
 To obtain real times in the open face features, we need to add the beginning real time of each video to the timestamp for each timestamp in the features table.
 
-This can be obtained by merging the features file with the video names file.
+This can be obtained by merging the features file with the video times file.
 
-First run python convert_datetime.py patient_session.csv datetime_patient_session.csv to arrange the indeces. 
-
-Then run python join_realtime.py patient_session features_patient_session.csv
+Step 1: convert the video times file in a datetime format:
 
 ```
-features = pd.read_csv('~/features.csv')
-vid_times = pd.read_csv('~/ecogAnalysis/data_preprocessing/output.csv')
-merged = pd.merge(joined, vid_times,how = 'left' )
+ python convert_datetime.py patient_session.csv datetime_patient_session.csv 
 ```
 
-In the end add the timestamp column to the datatime column:
-merged['real_time'] = merged['timestamp'] + merged['datetime']
+Step 2: merge the features with their realtimes
 
-Make sure they are read in proper data format.
+```
+ python join_realtime.py patient_session features_patient_session.csv
+```
+
+In the end `features_patient_session.csv` has a column `realtime`.
+
+
+Warnings:
+
+* Some column name come up with a space in front of the name!
+* When the final files are read in pandas not all datetime columns are read as datetime, but they can be converted using the `pd.to_datetime` command.
 
