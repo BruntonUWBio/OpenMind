@@ -5,6 +5,8 @@
 # Usage: python combine_off.py /data2/OpenFaceTests/ /data2/OpenFaceFeatures/joined_features.csv
 # 
 # The first argument corresponds to the pattern we want to match in the action units folder.
+# For example, if we specify /data2/OpenFaceTests/a86a4375 we will store the features only for 
+# patient.
 # The second argument corresponds to the name of the output file.
 # 
 #################################################################################################
