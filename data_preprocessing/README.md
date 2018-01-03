@@ -14,16 +14,25 @@ This can be obtained by merging the features file with the video times file.
 Step 1: convert the video times file in a datetime format:
 
 ```
- python convert_datetime.py patient_session.csv datetime_patient_session.csv 
+ python convert_datetime_per_session.py /data1/sharedata/vid_real_time/fcb01f7a_2 ../temp_data/datetime_fcb01f7a_2.csv
 ```
+
+(If you want to convert all files simultaneously run:
+
+```
+ python convert_datetime_all.py /sharedata/ ../temp_data
+```
+
+That will generate a datetime_patient.csv file for each patient.)
 
 Step 2: merge the features with their realtimes
 
+
 ```
- python join_realtime.py patient_session features_patient_session.csv
+  python join_realtime.py /data2/OpenFaceFeatures/joined.csv fcb01f7a_2 ../temp_data/
 ```
 
-In the end `features_patient_session.csv` has a column `realtime`.
+In the end `features_patient_session_realtime.csv` in the OpenFaceFeatures folder has a column `realtime`.
 
 
 Warnings:
