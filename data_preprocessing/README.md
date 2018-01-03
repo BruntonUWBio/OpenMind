@@ -2,10 +2,17 @@ The Open Face Features obtained by running Open Face are stored in cylon@/data2/
 
 Step 0: combine features into one .csv file
 
+one session:
+
 ```
    python combine_off.py /data2/OpenFaceTests/patient_session /data2/OpenFaceFeatures/features_patient_session.csv
 ```
-(Here we just show how to process the data for one session, similarly all features can be combined, or features for one patient)
+
+all:
+
+```
+   python combine_off.py /data2/OpenFaceTests/ /data2/OpenFaceFeatures/joined.csv
+```
 
 To obtain real times in the open face features, we need to add the beginning real time of each video to the timestamp for each timestamp in the features table.
 
