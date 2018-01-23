@@ -39,6 +39,12 @@ def is_number(s):
 bar = progressbar.ProgressBar(max_value=len(folder_list))
 curr_end = 0
 for folder_num, folder in enumerate(folder_list):
+    # if 'all_dict.txt' in os.listdir(folder):
+    #     temp_au = pd.read_csv(folder + '/au.txt', index_col = 0)
+    #     temp = pd.read_json(os.path.join(folder, 'all_dict.txt'))
+    #     temp.join(temp_au)
+    #     pass
+    # else:
     temp = pd.read_csv(folder + '/au.txt', index_col=0)
     dir_names = folder.split('/')
     patient, session, vid, cropped = dir_names[-1].split('_')
