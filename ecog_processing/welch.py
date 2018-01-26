@@ -1,5 +1,6 @@
 import mne
 from mayavi import mlab
+from mne.io import read_raw_edf
 from mne.viz import plot_alignment
 from scipy.io import loadmat
 
@@ -57,6 +58,9 @@ mon = mne.channels.DigMontage(dig_ch_pos=dig_ch_pos, point_names=ch_names)
 # mon.transform_to_head()
 # mon.save('montage.fif')
 
-evoked = mne.Evoked(verbose=3)
+raw = read_raw_edf('/homes/iws/gauthv/a1d36553_8.edf')
+raw.save('sample.fif')
+evoked = mne.Evoked('sample.fif', verbose=3)
 evoked.set_montage(mon)
 
+print('kurwa')
