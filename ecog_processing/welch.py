@@ -1,10 +1,5 @@
-import matplotlib.pyplot as plt
 import mne
-import datetime
-import pandas as pd
-import numpy as np
 from mayavi import mlab
-from mne.time_frequency import psd_welch
 from mne.viz import plot_alignment
 from scipy.io import loadmat
 
@@ -42,7 +37,7 @@ from scipy.io import loadmat
 # im.set_clim()
 # plt.title('continous power spectrum from {0} to {1}'.format(tmin, tmax))
 # plt.show()
-mat = loadmat('/data/electrodes/cb46fd46/ecb43e/trodes.mat')
+mat = loadmat('/homes/iws/gauthv/trodes.mat')
 ch_names = list(map(str, range(mat['Grid'].shape[0])))
 elec = mat['Grid']
 # mat = loadmat(mne.datasets.misc.data_path() + '/ecog/sample_ecog.mat')
@@ -50,10 +45,18 @@ elec = mat['Grid']
 # elec = mat['elec']
 
 dig_ch_pos = dict(zip(ch_names, elec))
-mon = mne.channels.DigMontage(dig_ch_pos=dig_ch_pos)
-print('Created %s channel positions' % len(ch_names))
-info = mne.create_info(ch_names, 1000., 'ecog', montage=mon, verbose=3)
-subjects_dir = mne.datasets.sample.data_path() + '/subjects'
-fig = plot_alignment(info, subject='sample', subjects_dir=subjects_dir, surfaces=['pial'])
+mon = mne.channels.DigMontage(dig_ch_pos=dig_ch_pos, point_names=ch_names)
+# print('Created %s channel positions' % len(ch_names))
+# info = mne.create_info(ch_names, 1000., 'ecog', montage=mon, verbose=3)
+# subjects_dir = mne.datasets.sample.data_path() + '/subjects'
+#
+# fig = plot_alignment(info, subject='sample', meg=False, subjects_dir=subjects_dir, surfaces=['pial'], verbose=3)
 # mlab.savefig('sample_alignment.png', figure=fig)
-# mlab.view(200, 70)
+# # mlab.view(200, 70)
+
+# mon.transform_to_head()
+# mon.save('montage.fif')
+
+evoked = mne.Evoked(verbose=3)
+evoked.set_montage(mon)
+
