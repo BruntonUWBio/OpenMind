@@ -1,6 +1,19 @@
+from __future__ import absolute_import
+
+import glob
+import json
+import os
+import re
+import sys
+
 import mne
+import numpy as np
 import pandas as pd
+from scipy.io import loadmat
+
+sys.path.append('/home/gvelchuru')
 from mne.io import read_raw_edf
+
 
 # fig, ax = plt.subplots(1)
 # raw = mne.io.read_raw_edf('/data1/edf/a1d36553/a1d36553_8.edf', preload=False)
@@ -38,9 +51,6 @@ from mne.io import read_raw_edf
 # plt.show()
 
 
-# mat = loadmat('/data/electrodes/cb46fd46/ecb43e/bis_trodes.mat')
-
-
 # mat_array = mat['Montage']
 # open('montage.txt', 'w').write(str(mat_array))
 # file_mat_array = np.fromfile('montage.txt')
@@ -67,7 +77,7 @@ from mne.io import read_raw_edf
 # mon.transform_to_head()
 # mon.save('montage.fif')
 
-raw = read_raw_edf('/home/gvelchuru/a1d36553_8.edf')
+# raw = read_raw_edf('/home/gvelchuru/a1d36553_8.edf')
 
 
 # print(raw[0:100])
@@ -87,18 +97,63 @@ def get_datetimes(raw, start, end):
     return datetimes
 
 
-def get_events(filename, datetimes):
-    events = None
-    pass
+def get_events(filename, au_emote_dict):
+    events = []
+    patient_session = os.path.basename(filename).replace('.edf', '')
+    op_folder = '/data2/OpenFaceTests'
+    patient_folders = sorted(glob.glob(os.path.join('/data2/OpenFaceTests/', patient_session + '*')))
+    for patient_folder in (x for x in patient_folders if os.path.isdir(x)):
+        presence_dict = au_emote_dict[os.path.basename(patient_folder)]
+        if presence_dict and any(presence_dict.values()):
+            nums = re.findall(r'\d+', patient_folder)
+            session = int(nums[len(nums) - 1])
+            starting_time = int(session * 120 * 1000)  # convert to sampling rate
+            for frame in presence_dict:
+                if presence_dict[frame] and presence_dict[frame][1] == 'Happy':
+                    events.append(([int(starting_time + int(frame) * (1000 / 30)), 0, 1]))
+    return np.array(events, dtype=np.int)
+    # presence_dict = json.load(open(os.path.join(op_folder, patient_folder, 'all_dict.txt')))
+    # if presence_dict:
+    #     classifier = joblib.load('/data2/OpenFaceTests/Happy_trained_RandomForest_with_pose.pkl')
+    #     frames = presence_dict.keys()
 
 
 if __name__ == '__main__':
-    filename = '/home/gvelchuru/a1d36553_8.edf'
-    raw = read_raw_edf(filename)
-    start = 200000
-    end = 400000
-    datetimes = get_datetimes(raw, start, end)
-    picks = mne.pick_types(raw.info, eeg=True, exclude="bads")
-    picks = picks[10:30]
-    data = raw.get_data(picks, start, end)
-    events = get_events(filename, datetimes)
+    # filenames = glob.iglob("/data1/**/*.edf", recursive=True)
+    filenames = ['/data1/edf/a1d36553/a1d36553_4.edf']
+    au_emote_dict = json.load(open('/data2/OpenFaceTests/au_emotes.txt'))
+    for filename in filenames:
+        # try:
+        print(filename)
+
+        raw = read_raw_edf(filename, preload=False)
+        start = 200000
+        end = 400000
+        # datetimes = get_datetimes(raw, start, end)
+        mapping = {ch_name: 'ecog' for ch_name in raw.ch_names}
+        raw.set_channel_types(mapping)
+
+        # raw.set_montage(mon)
+        picks = mne.pick_types(raw.info, ecog=True)
+        # picks = picks[10:30]
+        # data = raw.get_data(picks, start, end)
+        events = np.sort(get_events(filename, au_emote_dict), 0)
+        if len(events) > 0:
+            # raw.save('test.raw.fif')
+            epochs = mne.Epochs(raw, events)
+            evoked = epochs.average(picks=picks)
+            mat = loadmat('/home/gvelchuru/ecb43e/trodes.mat')
+
+            elec = mat['Grid']
+            ch_names = list(map(str, picks[:len(elec)]))
+            evoked = evoked.pick_channels(evoked.ch_names[:len(elec)])
+            # temporary
+            evoked.rename_channels({ch_name: i for ch_name, i in zip(evoked.ch_names, ch_names)})
+
+            dig_ch_pos = dict(zip(ch_names, elec))
+            mon = mne.channels.DigMontage(dig_ch_pos=dig_ch_pos, point_names=ch_names)
+            evoked.set_montage(mon)
+            evoked.save('test-ave.fif')
+            # except RuntimeError:
+            #     print('error \t' + filename)
+            #     continue
