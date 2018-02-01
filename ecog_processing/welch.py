@@ -152,8 +152,11 @@ if __name__ == '__main__':
 
             dig_ch_pos = dict(zip(ch_names, elec))
             mon = mne.channels.DigMontage(dig_ch_pos=dig_ch_pos, point_names=ch_names)
-            evoked.set_montage(mon)
-            evoked.save('test-ave.fif')
+
+
+            # evoked.set_montage(mon)
+            # evoked.save('test-ave.fif')
             # except RuntimeError:
             #     print('error \t' + filename)
             #     continue
+

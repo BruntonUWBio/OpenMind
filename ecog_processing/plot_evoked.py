@@ -1,3 +1,8 @@
+import os
+
+os.environ['ETS_TOOLKIT'] = 'wx'
+# os.environ['QT_API'] = 'pyqt'
+
 import mne
 import numpy as np
 from mayavi import mlab
@@ -9,9 +14,19 @@ from scipy.io import loadmat
 evoked_arr = evoked.read_evokeds('test-ave.fif')
 subjects_dir = mne.datasets.sample.data_path() + '/subjects'
 
-fig = plot_alignment(evoked_arr[0].info, subject='sample', subjects_dir=subjects_dir, surfaces=['pial'])
+path_data = mne.datasets.misc.data_path() + '/ecog/sample_ecog.mat'
+mat = loadmat(path_data)
+ch_names = evoked_arr[0].ch_names
+elec = mat['elec'][:len(ch_names)]
+dig_ch_pos = dict(zip(ch_names, elec))
+mon = mne.channels.DigMontage(dig_ch_pos=dig_ch_pos)
+info = mne.create_info(ch_names, 1000., 'ecog', montage=mon)
+fig = plot_alignment(info, subject='sample', subjects_dir=subjects_dir,
+                     surfaces=['pial'], meg=False)
+
+# info = evoked_arr[0].info
+# fig = plot_alignment(info, subject='sample', subjects_dir=subjects_dir, surfaces=['pial'])
 mlab.view(200, 70)
-info = evoked_arr[0].info
 xy, im = snapshot_brain_montage(fig, info)
 
 # Convert from a dictionary to array to plot
