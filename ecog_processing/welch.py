@@ -140,18 +140,33 @@ if __name__ == '__main__':
         events = np.sort(get_events(filename, au_emote_dict), 0)
         if len(events) > 0:
             # raw.save('test.raw.fif')
-            epochs = mne.Epochs(raw, events)
-            evoked = epochs.average(picks=picks)
+            epochs = mne.Epochs(raw, events, preload=True)
+            # evoked = epochs.average(picks=picks)
+            # mat = loadmat('/home/gvelchuru/ecb43e/trodes.mat')
+            #
+            # elec = mat['Grid']
+            # ch_names = list(map(str, picks[:len(elec)]))
+            # evoked = evoked.pick_channels(evoked.ch_names[:len(elec)])
+            # # temporary
+            # evoked.rename_channels({ch_name: i for ch_name, i in zip(evoked.ch_names, ch_names)})
+            #
+            # dig_ch_pos = dict(zip(ch_names, elec))
+            # mon = mne.channels.DigMontage(dig_ch_pos=dig_ch_pos, point_names=ch_names)
+
             mat = loadmat('/home/gvelchuru/ecb43e/trodes.mat')
 
             elec = mat['Grid']
             ch_names = list(map(str, picks[:len(elec)]))
-            evoked = evoked.pick_channels(evoked.ch_names[:len(elec)])
+            epochs = epochs.pick_channels(epochs.ch_names[:len(elec)])
+
             # temporary
-            evoked.rename_channels({ch_name: i for ch_name, i in zip(evoked.ch_names, ch_names)})
+            epochs.rename_channels({ch_name: i for ch_name, i in zip(epochs.ch_names, ch_names)})
 
             dig_ch_pos = dict(zip(ch_names, elec))
             mon = mne.channels.DigMontage(dig_ch_pos=dig_ch_pos, point_names=ch_names)
+
+            epochs.save('test-epo.fif')
+
 
 
             # evoked.set_montage(mon)
