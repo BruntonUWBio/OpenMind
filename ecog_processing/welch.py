@@ -161,7 +161,7 @@ if __name__ == '__main__':
             # mat = loadmat('/home/gvelchuru/ecb43e/trodes.mat')
             load_montage()
 
-            elec = mat['Grid']
+            elec = mat['AllTrodes']
             ch_names = list(map(str, picks[:len(elec)]))
             epochs = epochs.pick_channels(epochs.ch_names[:len(elec)])
 
