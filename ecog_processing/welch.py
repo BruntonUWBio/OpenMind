@@ -118,6 +118,11 @@ def get_events(filename, au_emote_dict):
     #     frames = presence_dict.keys()
 
 
+def load_montage():
+    mat = loadmat('/home/gvelchuru/ecb43e/ecb43e_Montage.mat')
+    array = np.array(mat['Montage'][0])
+    print 'kurwa'
+
 if __name__ == '__main__':
     # filenames = glob.iglob("/data1/**/*.edf", recursive=True)
     filenames = ['/data1/edf/a1d36553/a1d36553_4.edf']
@@ -153,7 +158,8 @@ if __name__ == '__main__':
             # dig_ch_pos = dict(zip(ch_names, elec))
             # mon = mne.channels.DigMontage(dig_ch_pos=dig_ch_pos, point_names=ch_names)
 
-            mat = loadmat('/home/gvelchuru/ecb43e/trodes.mat')
+            # mat = loadmat('/home/gvelchuru/ecb43e/trodes.mat')
+            load_montage()
 
             elec = mat['Grid']
             ch_names = list(map(str, picks[:len(elec)]))
