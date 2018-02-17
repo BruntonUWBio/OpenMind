@@ -86,12 +86,15 @@ for folder_num, folder in enumerate(folder_list):
     temp.rename(columns={'Unnamed: 0': 'frame'}, inplace=True)
     if 'all_dict.txt' in os.listdir(folder):
         # multi_runs_dict = json.load(open(os.path.join(folder, 'all_dict.txt')))
-        data = pd.read_json(os.path.join(folder,'all_dict.txt')).T
+        data = pd.read_json(os.path.join(folder,'all_dict.txt')).T.reset_index()
         # add a check whether there is something in all_dict
         data['patient'] = patient
         data['session'] = session
         data['vid'] = vid
+        print(data.columns)
         data.rename(columns={'Unnamed: 0': 'frame'}, inplace=True)
+        data.rename(columns={'index':'frame'}, inplace=True)
+        print(data.columns)
         df_empty = df_empty.append(data,ignore_index=True)
     
     df_empty.to_csv(f, header=H)
