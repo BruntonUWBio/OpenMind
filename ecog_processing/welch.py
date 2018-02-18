@@ -125,7 +125,8 @@ def load_montage():
 
 if __name__ == '__main__':
     # filenames = glob.iglob("/data1/**/*.edf", recursive=True)
-    filenames = ['/data1/edf/a1d36553/a1d36553_4.edf']
+    # filenames = ['/data1/edf/a1d36553/a1d36553_4.edf']
+    filenames = ['cb46fd46_7.edf']
     au_emote_dict = json.load(open('/data2/OpenFaceTests/au_emotes.txt'))
     for filename in filenames:
         # try:
@@ -158,10 +159,10 @@ if __name__ == '__main__':
             # dig_ch_pos = dict(zip(ch_names, elec))
             # mon = mne.channels.DigMontage(dig_ch_pos=dig_ch_pos, point_names=ch_names)
 
-            # mat = loadmat('/home/gvelchuru/ecb43e/trodes.mat')
-            load_montage()
+            mat = loadmat('/home/gvelchuru/ecb43e/trodes.mat')
+            # load_montage()
 
-            elec = mat['AllTrodes']
+            elec = mat['Grid']
             ch_names = list(map(str, picks[:len(elec)]))
             epochs = epochs.pick_channels(epochs.ch_names[:len(elec)])
 
