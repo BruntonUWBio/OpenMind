@@ -100,10 +100,10 @@ def get_datetimes(raw, start, end):
 def get_events(filename, au_emote_dict):
     events = []
     patient_session = os.path.basename(filename).replace('.edf', '')
-    op_folder = '/data2/OpenFaceTests'
-    patient_folders = sorted(glob.glob(os.path.join('/data2/OpenFaceTests/', patient_session + '*')))
-    for patient_folder in (x for x in patient_folders if os.path.isdir(x)):
-        presence_dict = au_emote_dict[os.path.basename(patient_folder)]
+    # op_folder = '/data2/OpenFaceTests'
+    patient_folders = (x for x in au_emote_dict if patient_session in x)
+    for patient_folder in patient_folders:
+        presence_dict = au_emote_dict[patient_folder]
         if presence_dict and any(presence_dict.values()):
             nums = re.findall(r'\d+', patient_folder)
             session = int(nums[len(nums) - 1])
