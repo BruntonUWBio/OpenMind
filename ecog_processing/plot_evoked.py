@@ -86,7 +86,7 @@ if __name__ == '__main__':
     # info = epoch_arr[0].info
     # fig = plot_alignment(info, subject='sample', subjects_dir=subjects_dir, surfaces=['pial'])
     # fig = plot_alignment(info, subject='ecb43e', subjects_dir=subjects_dir, surfaces=['pial'])
-    mlab.view(200, 80)
+    mlab.view(210, 90)
     xy, im = snapshot_brain_montage(mlab_fig, info)
 
     # Convert from a dictionary to array to plot
