@@ -1,3 +1,4 @@
+from __future__ import print_function
 from __future__ import absolute_import
 
 import glob
@@ -121,7 +122,7 @@ def get_events(filename, au_emote_dict):
 def load_montage():
     mat = loadmat('/home/gvelchuru/ecb43e/ecb43e_Montage.mat')
     array = np.array(mat['Montage'][0])
-    print 'kurwa'
+    print('kurwa')
 
 if __name__ == '__main__':
     # filenames = glob.iglob("/data1/**/*.edf", recursive=True)

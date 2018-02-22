@@ -1,3 +1,4 @@
+
 import os
 import sys
 
@@ -8,6 +9,9 @@ from mne.time_frequency import psd_welch
 
 sys.path.append('/home/gauthv/PycharmProjects/ecogAnalysis')
 from ecog_processing.viewSTLmayavi import get_mayavi_fig
+
+sys.path.append('/home/gauthv/PycharmProjects/')
+from OpenFaceScripts.pipeline.HappyVidMarker import bar_movie
 
 os.environ['ETS_TOOLKIT'] = 'wx'
 # os.environ['QT_API'] = 'pyqt'
@@ -64,6 +68,11 @@ def create_animation(epoch_arr, xy_pts):
 
 
 if __name__ == '__main__':
+    times_corr = np.load('corr_arr.npy')
+    bar_movie('brain_anim.mp4', os.getcwd(), times_corr[0], times_corr[1])
+
+
+
     # evoked_arr = evoked.read_evokeds('test-ave.fif')
     epoch_arr = read_epochs('test-epo.fif')
     subjects_dir = mne.datasets.sample.data_path() + '/subjects'
