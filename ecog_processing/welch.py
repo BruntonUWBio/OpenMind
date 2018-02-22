@@ -160,6 +160,7 @@ if __name__ == '__main__':
         end = 400000
         # datetimes = get_datetimes(raw, start, end)
         mapping = {ch_name: 'ecog' for ch_name in raw.ch_names}
+        open('ch_names.txt', 'w').write(str(raw.ch_names))
         raw.set_channel_types(mapping)
 
         # raw.set_montage(mon)
