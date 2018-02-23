@@ -12,16 +12,17 @@ import numpy as np
 import pandas as pd
 from collections import defaultdict
 
+sys.path.append('/home/gvelchuru')
 from OpenFaceScripts.scoring import AUScorer
 from OpenFaceScripts.scoring.EmotionPredictor import make_emotion_data
 from scipy.io import loadmat
 import joblib
 
-sys.path.append('/home/gvelchuru')
 from mne.io import read_raw_edf
 
 tmin = -.2
 tmax = .5
+
 
 # fig, ax = plt.subplots(1)
 # raw = mne.io.read_raw_edf('/data1/edf/a1d36553/a1d36553_8.edf', preload=False)
@@ -122,9 +123,10 @@ def get_events(filename, au_emote_dict, emotion='Happy'):
             for frame in presence_dict:
                 if presence_dict[frame] and presence_dict[frame][1] == emotion:
                     events.append(([int(starting_time + int(frame) * (1000 / 30)), 0, 1]))
-                    past_frame = int(int(frame) + tmin * 30)
-                    future_frame = int(int(frame) + tmax * 30)
-                    for frame_to_add in map(str, range(past_frame, future_frame + 1)):
+                    # past_frame = int(int(frame) + tmin * (1000/30))
+                    # future_frame = int(int(frame) + tmax * (1000/30))
+                    # for frame_to_add in map(str, range(past_frame, future_frame + 1)):
+                    for frame_to_add in [frame]:
                         if frame_to_add in presence_dict and presence_dict[frame_to_add]:
                             aus = presence_dict[frame_to_add][0]
                             au_data = ([float(aus[str(x)]) for x in aus_list])
@@ -134,7 +136,7 @@ def get_events(filename, au_emote_dict, emotion='Happy'):
                             predicted_arr.append(np.array([0, 0]))
     # au_data, _ = make_emotion_data(emotion, evaluate_dict, False)
     # predicted_emotes = classifier.predict(au_data)
-    times = [x for x in range(0, len(predicted_arr), 10)]
+    times = [x for x in range(0, len(predicted_arr))]
     corr = [predicted_arr[a][1] for a in times]
     return np.array(events, dtype=np.int), np.array((times, corr))
     # presence_dict = json.load(open(os.path.join(op_folder, patient_folder, 'all_dict.txt')))
@@ -145,6 +147,14 @@ def get_events(filename, au_emote_dict, emotion='Happy'):
 def load_montage():
     mat = loadmat('/home/gvelchuru/ecb43e/ecb43e_Montage.mat')
     array = np.array(mat['Montage'][0])
+
+
+def get_ecg_arr(epochs: mne.Epochs) -> np.ndarray:
+    epochs.plot(mne.pick_types(epochs.info, meg=False, ecg=True))
+    evoked = epochs.average(mne.pick_types(epochs.info, meg=False, ecg=True))
+    evoked.plot()
+    return np.zeros(1)
+
 
 if __name__ == '__main__':
     # filenames = glob.iglob("/data1/**/*.edf", recursive=True)
@@ -159,12 +169,12 @@ if __name__ == '__main__':
         start = 200000
         end = 400000
         # datetimes = get_datetimes(raw, start, end)
-        mapping = {ch_name: 'ecog' for ch_name in raw.ch_names}
-        open('ch_names.txt', 'w').write(str(raw.ch_names))
+        mapping = {ch_name: 'ecog' for ch_name in raw.ch_names if 'GRID' in ch_name}
+        mapping.update({ch_name: 'ecg' for ch_name in raw.ch_names if 'ECG' in ch_name})
+        mapping.update({ch_name: 'eeg' for ch_name in raw.ch_names if ch_name not in mapping})
         raw.set_channel_types(mapping)
 
         # raw.set_montage(mon)
-        picks = mne.pick_types(raw.info, ecog=True)
         # picks = picks[10:30]
         # data = raw.get_data(picks, start, end)
         events, corr_arr = get_events(filename, au_emote_dict)
@@ -173,6 +183,7 @@ if __name__ == '__main__':
         if len(events) > 0:
             # raw.save('test.raw.fif')
             epochs = mne.Epochs(raw, events, preload=True)
+            epochs.pick_types(epochs.info, ecog=True, ecg=True, eeg=False)
             # evoked = epochs.average(picks=picks)
             # mat = loadmat('/home/gvelchuru/ecb43e/trodes.mat')
             #
@@ -186,25 +197,12 @@ if __name__ == '__main__':
             # mon = mne.channels.DigMontage(dig_ch_pos=dig_ch_pos, point_names=ch_names)
 
             mat = loadmat('/home/gvelchuru/ecb43e/trodes.mat')
-            # load_montage()
 
-            elec = mat['Grid']
-            ch_names = list(map(str, picks[:len(elec)]))
-            epochs = epochs.pick_channels(epochs.ch_names[:len(elec)])
-
-            # temporary
-            epochs.rename_channels({ch_name: i for ch_name, i in zip(epochs.ch_names, ch_names)})
-
-            dig_ch_pos = dict(zip(ch_names, elec))
-            mon = mne.channels.DigMontage(dig_ch_pos=dig_ch_pos, point_names=ch_names)
-
+            # np.save('ecg_arr.npy', get_ecg_arr(epochs))
             epochs.save('test-epo.fif')
-
-
 
             # evoked.set_montage(mon)
             # evoked.save('test-ave.fif')
             # except RuntimeError:
             #     print('error \t' + filename)
             #     continue
-
