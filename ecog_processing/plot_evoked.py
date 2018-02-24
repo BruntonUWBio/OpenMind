@@ -26,13 +26,14 @@ from scipy.io import loadmat
 
 
 class UpdateBrain:
-    def __init__(self, psds, freqs, xy_pts, ax):
+    def __init__(self, psds, freqs, xy_pts, ax, im=None):
         self.freqs = freqs
         self.psds = psds
         self.ax = ax
         self.xy_pts = xy_pts
         self.epoch_arr = epoch_arr
-        ax.imshow(im)
+        if im:
+            ax.imshow(im)
         ax.set_axis_off()
         self.activity = self.get_first_activity()
         self.patches = ax.scatter(*xy_pts.T, c=self.activity, s=100, cmap='coolwarm',
@@ -59,19 +60,18 @@ class UpdateBrain:
         return self.patches,
 
 
-def create_animation(epoch_arr, xy_pts):
+def create_animation(epoch_arr, xy_pts, im):
     psds, freqs = psd_welch(epoch_arr, 32, 100, n_jobs=2, verbose=True)
     fig2, ax = plt.subplots()
-    ud = UpdateBrain(psds, freqs, xy_pts, ax)
+    ud = UpdateBrain(psds, freqs, xy_pts, ax, im)
     anim = FuncAnimation(fig2, ud, frames=np.arange(len(epoch_arr)), init_func=ud.init, interval=100, blit=True)
     anim.save('brain_anim.mp4')
+
 
 
 if __name__ == '__main__':
     times_corr = np.load('corr_arr.npy')
     bar_movie('brain_anim.mp4', os.getcwd(), times_corr[0], times_corr[1])
-
-
 
     # evoked_arr = evoked.read_evokeds('test-ave.fif')
     epoch_arr = read_epochs('test-epo.fif')
@@ -106,7 +106,7 @@ if __name__ == '__main__':
     # data = epoch_arr.get_data()
     # for event in epoch_arr.events:
 
-    create_animation(epoch_arr, xy_pts)
+    create_animation(epoch_arr, xy_pts, im)
 
     # for evoked_epoch in epoch_arr.iter_evoked():
     #     # time = event[0]
