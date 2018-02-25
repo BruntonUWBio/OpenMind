@@ -1,4 +1,3 @@
-
 import os
 import sys
 
@@ -9,9 +8,10 @@ from mne.time_frequency import psd_welch
 
 sys.path.append('/home/gauthv/PycharmProjects/ecogAnalysis')
 from ecog_processing.viewSTLmayavi import get_mayavi_fig
+from animation.double_animation import ColorAnimator
 
-sys.path.append('/home/gauthv/PycharmProjects/')
-from OpenFaceScripts.pipeline.HappyVidMarker import bar_movie
+# sys.path.append('/home/gauthv/PycharmProjects/')
+# from OpenFaceScripts.pipeline.HappyVidMarker import bar_movie
 
 os.environ['ETS_TOOLKIT'] = 'wx'
 # os.environ['QT_API'] = 'pyqt'
@@ -31,7 +31,6 @@ class UpdateBrain:
         self.psds = psds
         self.ax = ax
         self.xy_pts = xy_pts
-        self.epoch_arr = epoch_arr
         if im:
             ax.imshow(im)
         ax.set_axis_off()
@@ -61,17 +60,25 @@ class UpdateBrain:
 
 
 def create_animation(epoch_arr, xy_pts, im):
-    psds, freqs = psd_welch(epoch_arr, 32, 100, n_jobs=2, verbose=True)
-    fig2, ax = plt.subplots()
-    ud = UpdateBrain(psds, freqs, xy_pts, ax, im)
-    anim = FuncAnimation(fig2, ud, frames=np.arange(len(epoch_arr)), init_func=ud.init, interval=100, blit=True)
-    anim.save('brain_anim.mp4')
+    psds, freqs = psd_welch(epoch_arr, 32, 100, verbose=True)
+    colors = []
+    for psd in psds:
+        electrode_averages = np.mean(psd, 1)
+        map = cm.ScalarMappable(Normalize().autoscale(electrode_averages), cmap='coolwarm')
+        rgbs = map.to_rgba(electrode_averages)
+        colors.append(rgbs)
+    times_corr = np.load('corr_arr.npy')
+    ColorAnimator(xy_pts, colors, times_corr[0], times_corr[1], im).create_animation(os.path.join(os.getcwd(), 'new_brain_anim.mp4'))
 
+    # fig2, ax = plt.subplots()
+    # ud = UpdateBrain(psds, freqs, xy_pts, ax, im)
+    # anim = FuncAnimation(fig2, ud, frames=np.arange(len(epoch_arr)), init_func=ud.init, interval=100, blit=True)
+    # anim.save('brain_anim.mp4')
 
 
 if __name__ == '__main__':
-    times_corr = np.load('corr_arr.npy')
-    bar_movie('brain_anim.mp4', os.getcwd(), times_corr[0], times_corr[1])
+    # times_corr = np.load('corr_arr.npy')
+    # bar_movie('brain_anim.mp4', os.getcwd(), times_corr[0], times_corr[1])
 
     # evoked_arr = evoked.read_evokeds('test-ave.fif')
     epoch_arr = read_epochs('test-epo.fif')
@@ -83,9 +90,9 @@ if __name__ == '__main__':
     # path_data = mne.datasets.misc.data_path() + '/ecog/sample_ecog.mat'
     path_data = 'trodes.mat'
     mat = loadmat(path_data)
-    ch_names = epoch_arr[0].ch_names
     # elec = mat['elec'][:len(ch_names)]
-    elec = mat['AllTrodes'][:len(ch_names)]
+    elec = mat['Grid']
+    ch_names = [x for x in epoch_arr[0].ch_names if 'GRID' in x]
     dig_ch_pos = dict(zip(ch_names, elec))
     mon = mne.channels.DigMontage(dig_ch_pos=dig_ch_pos)
     info = mne.create_info(ch_names, 1000., 'ecog', montage=mon)
@@ -99,7 +106,7 @@ if __name__ == '__main__':
     xy, im = snapshot_brain_montage(mlab_fig, info)
 
     # Convert from a dictionary to array to plot
-    xy_pts = np.stack(xy[ch] for ch in info['ch_names'])
+    xy_pts = np.stack(xy[ch] for ch in info['ch_names'] if ch in ch_names)
 
     # Define an arbitrary "activity" pattern for viz
     activity = np.zeros((xy_pts.shape[0],))
@@ -107,16 +114,3 @@ if __name__ == '__main__':
     # for event in epoch_arr.events:
 
     create_animation(epoch_arr, xy_pts, im)
-
-    # for evoked_epoch in epoch_arr.iter_evoked():
-    #     # time = event[0]
-    #     # epoch_cropped = epoch_arr.crop(time - 10000, time + 10000)
-    #     for index, electrode in enumerate(evoked_epoch.data):
-    #         activity[index] += np.mean([abs(x) for x in electrode])
-    #
-    # # This allows us to use matplotlib to create arbitrary 2d scatterplots
-    # fig2, ax = plt.subplots(figsize=(10, 10))
-    # ax.imshow(im)
-    # ax.scatter(*xy_pts.T, c=activity, s=200, cmap='coolwarm', norm=Normalize().autoscale(activity))
-    # ax.set_axis_off()
-    # fig2.savefig('./brain.png', bbox_inches='tight')
