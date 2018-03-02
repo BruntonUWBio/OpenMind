@@ -1,0 +1,3 @@
+[submodule "animation/OpenFaceScripts"]
+	path = animation/OpenFaceScripts
+	url = https://github.com/gvelchuru/OpenFaceScripts.git
