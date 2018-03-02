@@ -6,8 +6,7 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.colors import Normalize
 from mne.time_frequency import psd_welch
 
-sys.path.append('/home/gauthv/PycharmProjects/ecogAnalysis')
-from ecog_processing.viewSTLmayavi import get_mayavi_fig
+from viewSTLmayavi import get_mayavi_fig
 
 os.environ['ETS_TOOLKIT'] = 'wx'
 # os.environ['QT_API'] = 'pyqt'
