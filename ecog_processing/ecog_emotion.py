@@ -36,7 +36,7 @@ def find_filename_data(au_emote_dict, one_data, zero_data, filename):
     all_times = len(raw)
     num_divisions = all_times / 1000
     range_times = np.arange(all_times)
-    np.array_split(range_times, num_divisions)
+    range_times = np.array_split(range_times, num_divisions)
     for time_arr in range_times:
         time_start = raw.time_as_index(time_arr[0])
         time_end = raw.time_as_index(time_arr[len(time_arr) - 1])
@@ -63,13 +63,15 @@ def find_filename_data(au_emote_dict, one_data, zero_data, filename):
                 zero_data.append(psd)
 
 if __name__ == '__main__':
-    filenames = glob("/data1/edf/**/*.edf", recursive=True)
+    # filenames = glob("/data1/edf/**/*.edf", recursive=True)
+    filenames = ['cb46fd46_7.edf']
     au_emote_dict = json.load(open('/data2/OpenFaceTests/au_emotes.txt'))
     m = multiprocessing.Manager()
     zero_data = m.list()
     one_data = m.list()
     f = functools.partial(find_filename_data, au_emote_dict, one_data, zero_data)
     Pool().map(f, filenames)
+    # find_filename_data(au_emote_dict, one_data, zero_data, filenames[0])
 
     random.shuffle(zero_data)
     zero_data = zero_data[:len(one_data)]
