@@ -120,7 +120,8 @@ def get_events(filename, au_emote_dict):
 
 if __name__ == '__main__':
     # filenames = glob.iglob("/data1/**/*.edf", recursive=True)
-    filenames = ['/data1/edf/a1d36553/a1d36553_4.edf']
+    # filenames = ['/data1/edf/a1d36553/a1d36553_4.edf']
+    filenames = ['data1/edf/cb46fd46/']
     au_emote_dict = json.load(open('/data2/OpenFaceTests/au_emotes.txt'))
     for filename in filenames:
         # try:
