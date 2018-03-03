@@ -63,9 +63,9 @@ def find_filename_data(au_emote_dict, one_data, zero_data, filename):
                 zero_data.append(psd)
 
 if __name__ == '__main__':
-    # filenames = glob("/data1/edf/**/*.edf", recursive=True)
-    filenames = ['cb46fd46_7.edf']
-    au_emote_dict = json.load(open('/data2/OpenFaceTests/au_emotes.txt'))
+    edf_dir = sys.argv[sys.argv.index('-e') + 1]
+    my_comp = sys.argv[sys.argv.index('c') + 1]
+    au_emote_dict = json.load(open(sys.argv[sys.argv.index('-au') + 1]))
     m = multiprocessing.Manager()
     zero_data = m.list()
     one_data = m.list()
@@ -85,5 +85,5 @@ if __name__ == '__main__':
         all_labels.append(1)
     all_data = np.array(all_data)
     all_labels = np.array(all_labels)
-    np.save('classifier_data/all_cylon_data.npy', all_data)
-    np.save('classifier_data/all_cylon_labels.npy', all_labels)
+    np.save('classifier_data/all_{0}_data.npy'.format(my_comp), all_data)
+    np.save('classifier_data/all_{0}_labels.npy'.format(my_comp), all_labels)
