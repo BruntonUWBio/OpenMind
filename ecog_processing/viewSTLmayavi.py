@@ -43,7 +43,7 @@ def get_mayavi_fig(STLfile, Matfile):
 
     triangles = [(i, i + 1, i + 2) for i in range(0, len(x), 3)]
 
-    mlab.triangular_mesh(x, y, z, triangles)
+    mlab.triangular_mesh(x, y, z, triangles, colormap='gray')
     # pts = pd.read_csv(sys.argv[2])
     pts = get_points(Matfile)
 
