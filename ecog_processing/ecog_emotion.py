@@ -3,9 +3,9 @@ import mne
 import json
 import random
 import multiprocessing
+import sys
 from glob import glob
 from mne.time_frequency import psd_welch
-from mne import read_epochs
 from mne.io import read_raw_edf
 from welch import get_events
 from pathos.multiprocessing import ProcessingPool as Pool
@@ -18,11 +18,14 @@ def find_filename_data(au_emote_dict, one_data, zero_data, filename):
     # start = 200000
     # end = 400000
     # datetimes = get_datetimes(raw, start, end)
-    mapping = {ch_name: 'ecog' for ch_name in raw.ch_names if 'GRID' in ch_name}
-    mapping.update({ch_name: 'ecg' for ch_name in raw.ch_names if 'ECG' in ch_name})
-    mapping.update({ch_name: 'eeg' for ch_name in raw.ch_names if ch_name not in mapping})
+    mapping = {ch_name: 'ecog' for ch_name in raw.ch_names
+               if 'GRID' in ch_name}
+    mapping.update(
+        {ch_name: 'ecg' for ch_name in raw.ch_names if 'ECG' in ch_name})
+    mapping.update(
+        {ch_name: 'eeg' for ch_name in raw.ch_names
+         if ch_name not in mapping})
     raw.set_channel_types(mapping)
-
     # raw.set_montage(mon)
     # picks = picks[10:30]
     # data = raw.get_data(picks, start, end)
@@ -62,14 +65,17 @@ def find_filename_data(au_emote_dict, one_data, zero_data, filename):
             else:
                 zero_data.append(psd)
 
+
 if __name__ == '__main__':
     edf_dir = sys.argv[sys.argv.index('-e') + 1]
-    my_comp = sys.argv[sys.argv.index('c') + 1]
+    my_comp = sys.argv[sys.argv.index('-c') + 1]
     au_emote_dict = json.load(open(sys.argv[sys.argv.index('-au') + 1]))
     m = multiprocessing.Manager()
     zero_data = m.list()
     one_data = m.list()
-    f = functools.partial(find_filename_data, au_emote_dict, one_data, zero_data)
+    filenames = glob(edf_dir)
+    f = functools.partial(find_filename_data, au_emote_dict,
+                          one_data, zero_data)
     Pool().map(f, filenames)
     # find_filename_data(au_emote_dict, one_data, zero_data, filenames[0])
 
