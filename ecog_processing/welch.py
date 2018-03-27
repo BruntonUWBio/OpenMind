@@ -12,11 +12,10 @@ import pickle
 import mne
 import numpy as np
 import pandas as pd
-from collections import defaultdict
 
-sys.path.append('/home/gvelchuru')
-from OpenFaceScripts.scoring import AUScorer
-from OpenFaceScripts.scoring.EmotionPredictor import make_emotion_data
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from animation.OpenFaceScripts.scoring import AUScorer
+from animation.OpenFaceScripts.scoring.EmotionPredictor import make_emotion_data
 from scipy.io import loadmat
 import joblib
 
@@ -38,10 +37,10 @@ def get_datetimes(raw, start, end):
         return datetimes
 
 
-def get_events(filename, au_emote_dict, emotion='Happy'):
+def get_events(filename, au_emote_dict, classifier_loc,  emotion='Happy'):
         events = []
-        classifier = pickle.load(open(
-            '/data2/OpenFaceTests/{0}_trained_RandomForest_with_pose.pkl'.format(emotion), 'rb'))
+        classifier = pickle.load(open(os.path.join(
+                classifier_loc, '{0}_trained_RandomForest_with_pose.pkl'.format(emotion)), 'rb'))
         aus_list = AUScorer.TrainList
         times = []
         predicted_arr = []
