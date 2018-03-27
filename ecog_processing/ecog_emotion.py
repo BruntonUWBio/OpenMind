@@ -39,6 +39,7 @@ def find_filename_data(au_emote_dict, one_data, zero_data, filename):
     num_divisions = all_times / 1000
     range_times = np.arange(all_times)
     range_times = np.array_split(range_times, num_divisions)
+
     for time_arr in range_times:
         time_start = raw.time_as_index(time_arr[0])
         time_end = raw.time_as_index(time_arr[len(time_arr) - 1])
@@ -48,17 +49,22 @@ def find_filename_data(au_emote_dict, one_data, zero_data, filename):
         has_event = False
         annotated = False
         # all_nans = True
+
         for time in np.arange(begin_time, end_time):
             if time in predicDic and not np.isnan(predicDic[time]):
                 annotated = True
+
                 break
+
         if annotated:
             for time in np.arange(begin_time, end_time):
                 if time in eventTimes:
                     has_event = True
+
                     break
             # if not all_nans:
             psd = psd_welch(data, 32, 100)
+
             if has_event:
                 one_data.append(psd)
             else:
@@ -73,7 +79,7 @@ if __name__ == '__main__':
     m = multiprocessing.Manager()
     zero_data = m.list()
     one_data = m.list()
-    filenames = glob(edf_dir)
+    # filenames = glob(edf_dir)
     f = functools.partial(find_filename_data, au_emote_dict, one_data, zero_data)
     Pool().map(f, filenames)
     # find_filename_data(au_emote_dict, one_data, zero_data, filenames[0])
@@ -82,9 +88,11 @@ if __name__ == '__main__':
     zero_data = zero_data[:len(one_data)]
     all_data = []
     all_labels = []
+
     for datum in zero_data:
             all_data.append(datum)
             all_labels.append(0)
+
     for datum in one_data:
             all_data.append(datum)
             all_labels.append(1)
