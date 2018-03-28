@@ -30,14 +30,11 @@ class ColorAnimator:
         if im is not None:
             self.ax.imshow(im)
         self.activity = self.get_first_activity()
-        self.patches = self.ax.scatter(*bottom_coords.T, c=self.activity, s=100)
+        self.patches = self.ax.scatter(*bottom_coords.T, 
+                                       c=self.activity, s=100)
 
     def get_first_activity(self) -> np.ndarray:
         return np.zeros((self.xy_pts.shape[0],))
-
-    # def init(self) -> tuple:
-    #     self.patches.set_color('w')
-    #     return self.patches,
 
     def __call__(self, i) -> tuple:
         self.patches.set_color(self.points_colors[i])

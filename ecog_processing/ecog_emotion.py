@@ -2,6 +2,8 @@ import numpy as np
 import mne
 import json
 import random
+import sys
+import os
 import multiprocessing
 import sys
 import os
@@ -20,14 +22,14 @@ def find_filename_data(au_emote_dict_loc, one_data, zero_data, classifier_loc, f
     # start = 200000
     # end = 400000
     # datetimes = get_datetimes(raw, start, end)
-    mapping = {ch_name: 'ecog' for ch_name in raw.ch_names
-               if 'GRID' in ch_name}
-    mapping.update(
-        {ch_name: 'ecg' for ch_name in raw.ch_names if 'ECG' in ch_name})
-    mapping.update(
-        {ch_name: 'eeg' for ch_name in raw.ch_names
-         if ch_name not in mapping})
+    mapping = {ch_name: 'ecog' for ch_name in raw.ch_names if 'GRID' in ch_name}
+    mapping.update({ch_name: 'ecg' for ch_name in raw.ch_names if 'ECG' in ch_name})
+    mapping.update({ch_name: 'eeg' for ch_name in raw.ch_names if ch_name not in mapping})
+    if 'ecog' not in mapping.value():
+        return
+
     raw.set_channel_types(mapping)
+
     # raw.set_montage(mon)
     # picks = picks[10:30]
     # data = raw.get_data(picks, start, end)
@@ -93,11 +95,11 @@ if __name__ == '__main__':
     all_data = []
     all_labels = []
     for datum in zero_data:
-        all_data.append(datum)
-        all_labels.append(0)
+            all_data.append(datum)
+            all_labels.append(0)
     for datum in one_data:
-        all_data.append(datum)
-        all_labels.append(1)
+            all_data.append(datum)
+            all_labels.append(1)
     all_data = np.array(all_data)
     all_labels = np.array(all_labels)
     np.save('classifier_data/all_{0}_data.npy'.format(my_comp), all_data)

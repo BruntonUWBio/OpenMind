@@ -26,15 +26,12 @@ tmax = .5
 
 
 def get_datetimes(raw, start, end):
-        info = raw.info
-        basetime_posix = info['meas_date']
-        channel1 = raw.get_data(picks=1, start=start, stop=end,
-                                reject_by_annotation=None, return_times=True)
-        datetimes = pd.to_datetime(
-            channel1[1].ravel() +
-            basetime_posix,
-            unit='s')
-        return datetimes
+    info = raw.info
+    basetime_posix = info['meas_date']
+    channel1 = raw.get_data(picks=1, start=start, stop=end,
+                            reject_by_annotation=None, return_times=True)
+    datetimes = pd.to_datetime(channel1[1].ravel() + basetime_posix, unit='s')
+    return datetimes
 
 
 def get_events(filename, au_emote_dict, classifier_loc,  emotion='Happy'):
@@ -83,77 +80,68 @@ def get_events(filename, au_emote_dict, classifier_loc,  emotion='Happy'):
 
 
 def load_montage():
-        mat = loadmat('/home/gvelchuru/ecb43e/ecb43e_Montage.mat')
-        array = np.array(mat['Montage'][0])
-        return array
+    mat = loadmat('/home/gvelchuru/ecb43e/ecb43e_Montage.mat')
+    array = np.array(mat['Montage'][0])
+    return array
 
 
 def get_ecg_arr(epochs: mne.Epochs) -> np.ndarray:
-        epochs.plot(mne.pick_types(epochs.info, meg=False, ecg=True))
-        evoked = epochs.average(
-            mne.pick_types(
-                epochs.info,
-                meg=False,
-                ecg=True))
-        evoked.plot()
-        return np.zeros(1)
+    epochs.plot(mne.pick_types(epochs.info, meg=False, ecg=True))
+    evoked = epochs.average(mne.pick_types(epochs.info, meg=False, ecg=True))
+    evoked.plot()
+    return np.zeros(1)
 
 
 if __name__ == '__main__':
-        edf_dir = sys.argv[sys.argv.index('-e') + 1]
-        # filenames = glob.iglob("/data1/**/*.edf", recursive=True)
-        # filenames = ['/data1/edf/a1d36553/a1d36553_4.edf']
-        au_emote_dict = json.load(open('/data2/OpenFaceTests/au_emotes.txt'))
-        for filename in filenames:
-                # try:
-                print(filename)
 
-                raw = read_raw_edf(filename, preload=False)
-                start = 200000
-                end = 400000
-                # datetimes = get_datetimes(raw, start, end)
-                mapping = {
-                    ch_name: 'ecog' for ch_name in raw.ch_names
-                    if 'GRID' in ch_name}
-                mapping.update(
-                    {ch_name: 'ecg' for ch_name in raw.ch_names
-                     if 'ECG' in ch_name})
-                mapping.update(
-                    {ch_name: 'eeg' for ch_name in raw.ch_names
-                     if ch_name not in mapping})
-                raw.set_channel_types(mapping)
+    edf_dir = sys.argv[sys.argv.index('-e') + 1]
 
-                # raw.set_montage(mon)
-                picks = mne.pick_types(raw.info, ecog=True)
-                # picks = picks[10:30]
-                # data = raw.get_data(picks, start, end)
-                events, corr_arr = get_events(filename, au_emote_dict)
+    # filenames = glob.iglob("/data1/**/*.edf", recursive=True)
+    # filenames = ['/data1/edf/a1d36553/a1d36553_4.edf']
+    au_emote_dict = json.load(open('/data2/OpenFaceTests/au_emotes.txt'))
+    for filename in filenames:
+        # try:
+        print(filename)
 
-                np.save('corr_arr.npy', corr_arr)
-                if len(events) > 0:
-                        # raw.save('test.raw.fif')
-                        epochs = mne.Epochs(raw, events, preload=True)
-                        epochs.pick_types(
-                            epochs.info, ecog=True, ecg=True, eeg=False)
-                        # evoked = epochs.average(picks=picks)
-                        # mat = loadmat('/home/gvelchuru/ecb43e/trodes.mat')
-                        #
-                        # elec = mat['Grid']
-                        # ch_names = list(map(str, picks[:len(elec)]))
-                        # evoked = evoked.pick_channels(evoked.ch_names[:len(elec)])
-                        # # temporary
-                        # evoked.rename_channels({ch_name: i for ch_name, i in zip(evoked.ch_names, ch_names)})
-                        #
-                        # dig_ch_pos = dict(zip(ch_names, elec))
-                        # mon = mne.channels.DigMontage(dig_ch_pos=dig_ch_pos, point_names=ch_names)
+        raw = read_raw_edf(filename, preload=False)
+        start = 200000
+        end = 400000
+        # datetimes = get_datetimes(raw, start, end)
+        mapping = {ch_name: 'ecog' for ch_name in raw.ch_names if 'GRID' in ch_name}
+        mapping.update({ch_name: 'ecg' for ch_name in raw.ch_names if 'ECG' in ch_name})
+        mapping.update({ch_name: 'eeg' for ch_name in raw.ch_names if ch_name not in mapping})
+        raw.set_channel_types(mapping)
 
-                        mat = loadmat('/home/gvelchuru/ecb43e/trodes.mat')
+        # raw.set_montage(mon)
+        picks=mne.pick_types(raw.info, ecog=True)
+        # picks = picks[10:30]
+        # data = raw.get_data(picks, start, end)
+        events, corr_arr=get_events(filename, au_emote_dict)
 
-                        # np.save('ecg_arr.npy', get_ecg_arr(
-                        epochs.save('test-epo.fif')
+        np.save('corr_arr.npy', corr_arr)
+        if len(events) > 0:
+            # raw.save('test.raw.fif')
+            epochs = mne.Epochs(raw, events, preload=True)
+            epochs.pick_types(epochs.info, ecog=True, ecg=True, eeg=False)
+            # evoked = epochs.average(picks=picks)
+            # mat = loadmat('/home/gvelchuru/ecb43e/trodes.mat')
+            #
+            # elec = mat['Grid']
+            # ch_names = list(map(str, picks[:len(elec)]))
+            # evoked = evoked.pick_channels(evoked.ch_names[:len(elec)])
+            # # temporary
+            # evoked.rename_channels({ch_name: i for ch_name, i in zip(evoked.ch_names, ch_names)})
+            #
+            # dig_ch_pos = dict(zip(ch_names, elec))
+            # mon = mne.channels.DigMontage(dig_ch_pos=dig_ch_pos, point_names=ch_names)
 
-                        # evoked.set_montage(mon)
-                        # evoked.save('test-ave.fif')
-                        # except RuntimeError:
-                        #     print('error \t' + filename)
-                        #     continue
+            mat=loadmat('/home/gvelchuru/ecb43e/trodes.mat')
+
+            # np.save('ecg_arr.npy', get_ecg_arr(
+            epochs.save('test-epo.fif')
+
+            # evoked.set_montage(mon)
+            # evoked.save('test-ave.fif')
+            # except RuntimeError:
+            #     print('error \t' + filename)
+            #     continue
