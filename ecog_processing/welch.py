@@ -12,11 +12,10 @@ import pickle
 import mne
 import numpy as np
 import pandas as pd
-from collections import defaultdict
 
-sys.path.append('/home/gvelchuru')
-from OpenFaceScripts.scoring import AUScorer
-from OpenFaceScripts.scoring.EmotionPredictor import make_emotion_data
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from animation.OpenFaceScripts.scoring import AUScorer
+from animation.OpenFaceScripts.scoring.EmotionPredictor import make_emotion_data
 from scipy.io import loadmat
 import joblib
 
@@ -35,42 +34,49 @@ def get_datetimes(raw, start, end):
     return datetimes
 
 
-def get_events(filename, au_emote_dict, emotion='Happy'):
-    events = []
-    classifier = pickle.load(open(
-        '/data2/OpenFaceTests/{0}_trained_RandomForest_with_pose.pkl'.format(emotion), 'rb'))
-    aus_list = AUScorer.TrainList
-    times = []
-    predicted_arr = []
-    patient_session = os.path.basename(filename).replace('.edf', '')
-    # op_folder = '/data2/OpenFaceTests'
-    patient_folders = (x for x in au_emote_dict if patient_session in x)
-    for patient_folder in patient_folders:
-        presence_dict = au_emote_dict[patient_folder]
-        if presence_dict and any(presence_dict.values()):
-            nums = re.findall(r'\d+', patient_folder)
-            session = int(nums[len(nums) - 1])
-            # convert to sampling rate
-            starting_time = int(session * 120)
-            for frame in presence_dict:
-                if presence_dict[frame] and presence_dict[frame][1] == emotion:
-                    events.append(([int(starting_time + int(frame) * (1 / 30)), 0, 1]))
-                for frame_to_add in [frame]:
-                    times.append((int(starting_time + int(frame) * (1 / 30))))
-                    if frame_to_add in presence_dict and presence_dict[frame_to_add]:
-                        aus = presence_dict[frame_to_add][0]
-                        au_data = ([float(aus[str(x)]) for x in aus_list])
-                        predicted = classifier.predict_proba(np.array(au_data).reshape(1, -1))[0]
-                        predicted_arr.append(predicted)
-                    else:
-                        predicted_arr.append(np.array([np.NaN, np.NaN]))
-    # au_data, _ = make_emotion_data(emotion, evaluate_dict, False)
-    # predicted_emotes = classifier.predict(au_data)
-    corr = [x[1] for x in predicted_arr]
-    return np.array(events, dtype=np.int), np.array((times, corr))
-    # presence_dict = json.load(open(os.path.join(op_folder, patient_folder, 'all_dict.txt')))
-    # if presence_dict:
-    #     frames = presence_dict.keys()
+def get_events(filename, au_emote_dict, classifier_loc,  emotion='Happy'):
+        events = []
+        classifier = pickle.load(open(os.path.join(
+                classifier_loc, '{0}_trained_RandomForest_with_pose.pkl'.format(emotion)), 'rb'))
+        aus_list = AUScorer.TrainList
+        times = []
+        predicted_arr = []
+        patient_session = os.path.basename(filename).replace('.edf', '')
+        # op_folder = '/data2/OpenFaceTests'
+        patient_folders = (x for x in au_emote_dict if patient_session in x)
+        for patient_folder in patient_folders:
+                presence_dict = au_emote_dict[patient_folder]
+                if presence_dict and any(presence_dict.values()):
+                        nums = re.findall(r'\d+', patient_folder)
+                        session = int(nums[len(nums) - 1])
+                        # convert to sampling rate
+                        starting_time = int(session * 120)
+                        for frame in presence_dict:
+                                if presence_dict[frame] and presence_dict[frame][1] == emotion:
+                                        events.append(
+                                                ([int(starting_time + int(frame) * (1 / 30)), 0, 1]))
+                                for frame_to_add in [frame]:
+                                        times.append(
+                                                (int(starting_time + int(frame) * (1 / 30))))
+                                        if frame_to_add in presence_dict and presence_dict[frame_to_add]:
+                                                aus = presence_dict[frame_to_add][0]
+                                                au_data = (
+                                                    [float(aus[str(x)])
+                                                     for x in aus_list])
+                                                predicted = classifier.predict_proba(
+                                                        np.array(au_data).reshape(1, -1))[0]
+                                                predicted_arr.append(predicted)
+                                        else:
+                                                predicted_arr.append(
+                                                    np.array(
+                                                        [np.NaN, np.NaN]))
+        # au_data, _ = make_emotion_data(emotion, evaluate_dict, False)
+        # predicted_emotes = classifier.predict(au_data)
+        corr = [x[1] for x in predicted_arr]
+        return np.array(events, dtype=np.int), np.array((times, corr))
+        # presence_dict = json.load(open(os.path.join(op_folder, patient_folder, 'all_dict.txt')))
+        # if presence_dict:
+        #     frames = presence_dict.keys()
 
 
 def load_montage():
@@ -87,7 +93,7 @@ def get_ecg_arr(epochs: mne.Epochs) -> np.ndarray:
 
 
 if __name__ == '__main__':
-    
+
     edf_dir = sys.argv[sys.argv.index('-e') + 1]
 
     # filenames = glob.iglob("/data1/**/*.edf", recursive=True)
