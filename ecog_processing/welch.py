@@ -24,6 +24,7 @@ from mne.io import read_raw_edf
 
 tmin = -.2
 tmax = .5
+VIDEO_FPS = 30
 
 
 def get_datetimes(raw, start, end):
@@ -44,7 +45,7 @@ def get_events(filename,
                au_emote_dict,
                classifier_loc,
                real_time_file: str,
-               emotion='Happy'):
+               emotion='Happy') -> tuple:
     events = []
     classifier = pickle.load(
         open(
@@ -66,42 +67,44 @@ def get_events(filename,
 
         for row in real_time_reader:
             vid_name = row[0]
-            year, month, day, hour, minute, second = map(int, row[1:7])
+            year, month, day, hour, minute, second, microseconds = map(
+                int, row[1:])
             real_world_time = datetime.datetime(year, month, day, hour, minute,
-                                                second)
-            real_time_dict[vid_name] = real_world_time
+                                                second, microseconds)
+            real_time_dict[vid_name.replace('.avi', '')] = real_world_time
 
     for patient_folder in patient_folders:
         presence_dict = au_emote_dict[patient_folder]
 
         if presence_dict and any(presence_dict.values()):
-            nums = re.findall(r'\d+', patient_folder)
-            session = int(nums[len(nums) - 1])
-            # convert to sampling rate
-            starting_time = int(session * 120)
+            curr_patient_start_time = real_time_dict[patient_folder.replace(
+                '_cropped', '')]
 
             for frame in presence_dict:
-                if presence_dict[frame] and presence_dict[frame][1] == emotion:
-                    events.append(
-                        ([int(starting_time + int(frame) * (1 / 30)), 0, 1]))
+                elapsed_seconds = frame / VIDEO_FPS
+                frame_time = curr_patient_start_time + \
+                    datetime.timedelta(seconds=elapsed_seconds)
 
-                for frame_to_add in [frame]:
-                    times.append((int(starting_time + int(frame) * (1 / 30))))
+                times.append(frame_time)
 
-                    if frame_to_add in presence_dict and presence_dict[frame_to_add]:
-                        aus = presence_dict[frame_to_add][0]
-                        au_data = ([float(aus[str(x)]) for x in aus_list])
-                        predicted = classifier.predict_proba(
-                            np.array(au_data).reshape(1, -1))[0]
-                        predicted_arr.append(predicted)
+                if presence_dict[frame]:
+                    aus = presence_dict[frame][0]
+                    au_data = ([float(aus[str(x)]) for x in aus_list])
+                    predicted = classifier.predict_proba(
+                        np.array(au_data).reshape(1, -1))[0]
+                    predicted_arr.append(predicted)
+                    classified = classifier.predict(
+                        np.array(au_data).reshape(1, -1))
+
+                    if classified == emotion:
+                        events.append([frame_time, 0, 1])
                     else:
                         predicted_arr.append(np.array([np.NaN, np.NaN]))
-    # au_data, _ = make_emotion_data(emotion, evaluate_dict, False)
-    # predicted_emotes = classifier.predict(au_data)
+
     corr = [x[1] for x in predicted_arr]
 
-    return np.array(events, dtype=np.int), np.array((times, corr))
-    # presence_dict = json.load(open(os.path.join(op_folder, patient_folder, 'all_dict.txt')))
+    return events, times, corr
+    # # presence_dict = json.load(open(os.path.join(op_folder, patient_folder, 'all_dict.txt')))
     # if presence_dict:
     #     frames = presence_dict.keys()
 
