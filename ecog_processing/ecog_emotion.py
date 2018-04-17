@@ -97,7 +97,6 @@ def find_filename_data(au_emote_dict_loc, one_data: list, zero_data: list,
     predicDic = {time: predic for time, predic in zip(times, corr)}
     eventTimes = set(x[0] for x in events)
     picks = mne.pick_types(raw.info, ecog=True)
-
     temp_one_data, temp_zero_data = get_window_data(raw, times, picks,
                                                     eventTimes)
     one_data.extend(temp_one_data)
@@ -140,6 +139,7 @@ if __name__ == '__main__':
     for datum in zero_data:
         all_data.append(datum)
         all_labels.append(0)
+
 
     for datum in one_data:
         all_data.append(datum)
