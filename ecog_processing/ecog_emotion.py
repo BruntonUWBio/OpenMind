@@ -9,6 +9,7 @@ import sys
 import os
 from glob import glob
 from mne.time_frequency import psd_welch
+from scipy.signal import welch
 from mne.io import read_raw_edf
 from welch import get_events
 from pathos.multiprocessing import ProcessingPool as Pool
@@ -16,7 +17,6 @@ import functools
 from tqdm import tqdm
 
 def find_filename_data(au_emote_dict_loc, one_data, zero_data, classifier_loc, filename):
-    print(filename)
     au_emote_dict = json.load(open(au_emote_dict_loc))
     raw = read_raw_edf(filename, preload=False)
     # start = 200000
@@ -25,7 +25,8 @@ def find_filename_data(au_emote_dict_loc, one_data, zero_data, classifier_loc, f
     mapping = {ch_name: 'ecog' for ch_name in raw.ch_names if 'GRID' in ch_name}
     mapping.update({ch_name: 'ecg' for ch_name in raw.ch_names if 'ECG' in ch_name})
     mapping.update({ch_name: 'eeg' for ch_name in raw.ch_names if ch_name not in mapping})
-    if 'ecog' not in mapping.value():
+    if 'ecog' not in mapping.values():
+        print('no ecog in {0}'.format(filename))
         return
 
     raw.set_channel_types(mapping)
@@ -34,7 +35,6 @@ def find_filename_data(au_emote_dict_loc, one_data, zero_data, classifier_loc, f
     # picks = picks[10:30]
     # data = raw.get_data(picks, start, end)
     events, corr_arr = get_events(filename, au_emote_dict, classifier_loc)
-    print('making event_time_dict')
     times = corr_arr[0]
     timePredics = corr_arr[1]
     predicDic = {time: predic for time, predic in zip(times, timePredics)}
@@ -48,7 +48,15 @@ def find_filename_data(au_emote_dict_loc, one_data, zero_data, classifier_loc, f
         for time_arr in range_times:
             time_start = raw.time_as_index(time_arr[0])[0]
             time_end = raw.time_as_index(time_arr[len(time_arr) - 1])[0]
-            data, times = raw[picks, time_start:time_end]
+            try:
+                data, times = raw[picks, time_start:time_end]
+            except ValueError as e:
+                print(len(raw))
+                print(raw.times)
+                print(time_start)
+                print(time_end)
+                print('failed')
+                continue
             begin_time = times[0]
             end_time = times[len(times) - 1]
             has_event = False
@@ -64,7 +72,8 @@ def find_filename_data(au_emote_dict_loc, one_data, zero_data, classifier_loc, f
                         has_event = True
                         break
                 # if not all_nans:
-                psd = psd_welch(data, 32, 100)
+                f, psd = welch(data)
+                print(f)
                 if has_event:
                     one_data.append(psd)
                 else:
