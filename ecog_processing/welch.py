@@ -44,7 +44,7 @@ def get_datetimes(raw, start, end):
 def get_events(filename,
                au_emote_dict,
                classifier_loc,
-               real_time_file: str,
+               real_time_file_loc: str,
                emotion='Happy') -> tuple:
     events = []
     classifier = pickle.load(
@@ -59,7 +59,10 @@ def get_events(filename,
     patient_session = os.path.basename(filename).replace('.edf', '')
     # op_folder = '/data2/OpenFaceTests'
     patient_folders = (x for x in au_emote_dict if patient_session in x)
+    real_time_file = os.path.join(real_time_file_loc, patient_session + '.csv')
 
+    if not os.path.exists(real_time_file):
+        return None, None, None
     real_time_dict = {}
 
     with open(real_time_file) as real_time_info:
@@ -77,29 +80,32 @@ def get_events(filename,
         presence_dict = au_emote_dict[patient_folder]
 
         if presence_dict and any(presence_dict.values()):
-            curr_patient_start_time = real_time_dict[patient_folder.replace(
-                '_cropped', '')]
+            curr_patient = patient_folder.replace('_cropped', '')
 
-            for frame in presence_dict:
-                elapsed_seconds = frame / VIDEO_FPS
-                frame_time = curr_patient_start_time + \
-                    datetime.timedelta(seconds=elapsed_seconds)
+            if curr_patient in real_time_dict:
+                curr_patient_start_time = real_time_dict[
+                    patient_folder.replace('_cropped', '')]
 
-                times.append(frame_time)
+                for frame in presence_dict:
+                    elapsed_seconds = int(frame) / VIDEO_FPS
+                    frame_time = curr_patient_start_time + \
+                        datetime.timedelta(seconds=elapsed_seconds)
 
-                if presence_dict[frame]:
-                    aus = presence_dict[frame][0]
-                    au_data = ([float(aus[str(x)]) for x in aus_list])
-                    predicted = classifier.predict_proba(
-                        np.array(au_data).reshape(1, -1))[0]
-                    predicted_arr.append(predicted)
-                    classified = classifier.predict(
-                        np.array(au_data).reshape(1, -1))
+                    times.append(frame_time)
 
-                    if classified == emotion:
-                        events.append([frame_time, 0, 1])
-                    else:
-                        predicted_arr.append(np.array([np.NaN, np.NaN]))
+                    if presence_dict[frame]:
+                        aus = presence_dict[frame][0]
+                        au_data = ([float(aus[str(x)]) for x in aus_list])
+                        predicted = classifier.predict_proba(
+                            np.array(au_data).reshape(1, -1))[0]
+                        predicted_arr.append(predicted)
+                        classified = classifier.predict(
+                            np.array(au_data).reshape(1, -1))
+
+                        if classified[0] == 1:
+                            events.append([frame_time, 0, 1])
+                        else:
+                            predicted_arr.append(np.array([np.NaN, np.NaN]))
 
     corr = [x[1] for x in predicted_arr]
 
