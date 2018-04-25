@@ -1,3 +1,4 @@
+from threading import Thread
 import argparse
 import json
 import random
@@ -108,18 +109,13 @@ def get_window_data(raw: mne.io.Raw, times: list, picks,
 
 
 def find_filename_data(au_emote_dict_loc, classifier_loc, real_time_file_loc,
-                       out_loc, filename):
-    # one_data = dask.array.asarray([])
-    # zero_data = dask.array.asarray([])
+                       out_loc, out_q, filename):
     au_emote_dict = json.load(open(au_emote_dict_loc))
     try:
         with suppress_stdout():
             raw = read_raw_edf(filename, preload=False)
     except ValueError:
         return
-    # start = 200000
-    # end = 400000
-    # datetimes = get_datetimes(raw, start, end)
     mapping = {
         ch_name: 'ecog'
         for ch_name in raw.ch_names if 'GRID' in ch_name
@@ -136,10 +132,6 @@ def find_filename_data(au_emote_dict_loc, classifier_loc, real_time_file_loc,
 
     raw.set_channel_types(mapping)
 
-    # raw.set_montage(mon)
-    # picks = picks[10:30]
-    # data = raw.get_data(picks, start, end)
-    # with suppress_stdout():
     events, times, corr = get_events(filename, au_emote_dict, classifier_loc,
                                      real_time_file_loc)
 
@@ -156,12 +148,6 @@ def find_filename_data(au_emote_dict_loc, classifier_loc, real_time_file_loc,
 
         if freqs is not None:
             freqs = da.from_array(freqs, chunks=(100, ))
-
-        # if temp_one_data is not None:
-        # temp_one_data = da.from_array(temp_one_data, chunks=(100, -1))
-
-        # if temp_zero_data is not None:
-        # temp_zero_data = da.from_array(temp_zero_data, chunks=(100, -1))
 
         if freqs is not None:
             filename_out_dir = os.path.join(out_loc, 'classifier_data',
@@ -180,30 +166,7 @@ def find_filename_data(au_emote_dict_loc, classifier_loc, real_time_file_loc,
             if temp_one_data is not None:
                 da.to_npy_stack(
                     os.path.join(filename_out_dir, '1'), temp_one_data)
-            # if temp_zero_data is not None and temp_one_data is not None:
-            # da.to_hdf5('classifier_data/{0}.hdf5'.format(
-            # os.path.basename(filename).replace('.edf', '')), {
-            # '/0': temp_zero_data,
-            # '/1': temp_one_data,
-            # '/freqs': freqs
-            # })
-            # elif temp_zero_data is not None:
-            # da.to_hdf5('classifier_data/{0}.hdf5'.format(
-            # os.path.basename(filename).replace('.edf', '')), {
-            # '/0': temp_zero_data,
-            # '/freqs': freqs
-            # })
-            # else:
-            # da.to_hdf5('classifier_data/{0}.hdf5'.format(
-            # os.path.basename(filename).replace('.edf', '')), {
-            # '/1': temp_one_data,
-            # '/freqs': freqs
-            # })
-        # np.save('classifier_data/{0}_zeros.npy'.format(filename),
-        # temp_zero_data)
-        # np.save('classifier_data/{0}_ones.npy'.format(filename), temp_one_data)
-        # one_data.extend(temp_one_data)
-        # zero_data.extend(temp_zero_data)
+    out_q.put(filename)
 
 
 def clean_filenames(filenames: list, au_dict: dict) -> list:
@@ -221,6 +184,23 @@ def clean_filenames(filenames: list, au_dict: dict) -> list:
     return out_names
 
 
+def listener(fn, q):
+    '''listens for messages on the q, writes to file. '''
+
+    while 1:
+        if not q.empty():
+            m = q.get()
+
+            if m == 'kill':
+                break
+            f = open(fn, 'r')
+            curr_arr = json.load(f)
+            curr_arr.append(m)
+            f = open(fn, 'w')
+            json.dump(curr_arr, f)
+    f.close()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='ecog_emotion')
     parser.add_argument('-e', required=True, help="Path to edf directory")
@@ -230,6 +210,8 @@ if __name__ == '__main__':
     parser.add_argument('-cl', required=True, help='Path to classifier')
     parser.add_argument('-rf', required=True, help='Path to real time file')
     parser.add_argument('-o', required=True, help='Out file path')
+    parser.add_argument(
+        '-a', required=True, help='Parent directory of already_done_file')
     args = vars(parser.parse_args())
     EDF_DIR = args['e']
     MY_COMP = args['c']
@@ -237,39 +219,34 @@ if __name__ == '__main__':
     CLASSIFIER_LOC = args['cl']
     REAL_TIME_FILE_LOC = args['rf']
     OUT_FILE_PATH = args['o']
+    ALREADY_DONE_FILE = os.path.join(args['a'], 'already_done.txt')
+
+    if os.path.exists(ALREADY_DONE_FILE):
+        already_done_dict = json.load(open(ALREADY_DONE_FILE))
+    else:
+        already_done_dict = []
+        json.dump(already_done_dict, open(ALREADY_DONE_FILE, 'w'))
     m = multiprocessing.Manager()
     zero_data = m.list()  # type: List[List[float]]
     one_data = m.list()  # type: List[List[float]]
     filenames = glob(os.path.join(EDF_DIR, '**/*.edf'), recursive=True)
-    filenames = clean_filenames(filenames, json.load(open(AU_EMOTE_DICT_LOC)))
+    filenames = [
+        x
+        for x in clean_filenames(filenames, json.load(open(AU_EMOTE_DICT_LOC)))
+        if x not in already_done_dict
+    ]
+    out_q = m.Queue()
     f = functools.partial(find_filename_data, AU_EMOTE_DICT_LOC,
-                          CLASSIFIER_LOC, REAL_TIME_FILE_LOC, OUT_FILE_PATH)
+                          CLASSIFIER_LOC, REAL_TIME_FILE_LOC, OUT_FILE_PATH,
+                          out_q)
     with tqdm(total=len(filenames)) as pbar:
-        p = Pool(5)
+        p = Pool(4)
+
+    Thread(target=listener, args=(ALREADY_DONE_FILE, out_q)).start()
+    # watcher = p.apply_async(listener, (ALREADY_DONE_FILE, out_q))
 
     for iteration, _ in enumerate(p.uimap(f, filenames)):
         pbar.update()
-        p.close()
 
-    # for filename in tqdm(filenames):
-    # find_filename_data(AU_EMOTE_DICT_LOC, CLASSIFIER_LOC,
-    # REAL_TIME_FILE_LOC, OUT_FILE_PATH, filename)
-
-    # find_filename_data(au_emote_dict, one_data, zero_data, filenames[0])
-
-    # random.shuffle(zero_data)
-    # zero_data = zero_data[:len(one_data)]
-    # all_data = []
-    # all_labels = []
-
-    # for datum in zero_data:
-    # all_data.append(datum)
-    # all_labels.append(0)
-
-    # for datum in one_data:
-    # all_data.append(datum)
-    # all_labels.append(1)
-    # all_data = np.array(all_data)
-    # all_labels = np.array(all_labels)
-    # np.save('classifier_data/all_{0}_data.npy'.format(MY_COMP), all_data)
-    # np.save('classifier_dataoooo_{0}_labels.npy'.format(MY_COMP), all_labels)
+    out_q.put('kill')
+    p.close()
