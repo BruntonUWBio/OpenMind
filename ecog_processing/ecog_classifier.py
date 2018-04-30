@@ -8,15 +8,51 @@ import h5py
 from tqdm import tqdm
 from tpot import TPOTClassifier
 from sklearn.model_selection import train_test_split
+from torch import nn, optim
+import torch
+from torch.nn import functional as F
+from torch.utils import data
+from torch.autograd import Variable
 
 
-def run_tpot(zeros, ones):
+class ECoG_NN(nn.Module):
+    def __init__(self, in_features, transfer_func):
+        super(ECoG_NN, self).__init__()
+        self.hidden_list = []
+        self.hidden_list.append(nn.Linear(in_features, 1000))
+        self.hidden_list.append(nn.Linear(1000, 2000))
+        # self.hidden_list.append(nn.Linear(2000, 4000))
+        # self.hidden_list.append(nn.Linear(4000, 8000))
+        # self.hidden_list.append(nn.Linear(8000, 4000))
+        # self.hidden_list.append(nn.Linear(4000, 2000))
+        self.hidden_list.append(nn.Linear(2000, 1000))
+        self.hidden_list.append(nn.Linear(1000, 50))
+        self.hidden_list.append(nn.Linear(50, 1))
+
+        self.hidden_list = nn.ModuleList(self.hidden_list)
+
+        self.transfer_func = transfer_func
+
+    def forward(self, x):
+        for layer in self.hidden_list:
+            x = self.transfer_func(layer(x))
+
+        return x
+
+
+def make_all_data(zeros, ones):
     y = [0 for x in zeros]
     y.extend([1 for x in ones])
     all_data = da.concatenate([zeros, ones]).compute()
+
+    return all_data, y
+
+
+def run_tpot(zeros, ones):
+    all_data, y = make_all_data(zeros, ones)
     X_train, X_test, y_train, y_test = train_test_split(
         all_data, y, test_size=.33)
-    pca = PCA(n_components=4)
+    pca = PCA(n_components=5)
     X_train = pca.fit_transform(X_train)
     X_test = pca.fit_transform(X_test)
 
@@ -34,8 +70,58 @@ def run_tpot(zeros, ones):
         max_eval_time_mins=20,
         memory='tpot_cache')
     tpot.fit(X_train, y_train)
-    print(tpot.score(X_test, y_test))
     tpot.export('tpot_ecog_pipeline.py')
+    print(tpot.score(X_test, y_test))
+
+
+def run_nn(zeros, ones):
+    num_epochs = 5000
+    all_data, y = make_all_data(zeros, ones)
+    X_train, X_test, y_train, y_test = train_test_split(
+        all_data, y, test_size=.33)
+    pca = PCA(n_components=4)
+    X_train = pca.fit_transform(X_train)
+    X_test = pca.fit_transform(X_test)
+    X_train = torch.from_numpy(X_train).float()
+    X_test = torch.from_numpy(X_test).float()
+    y_train = torch.Tensor(y_train).float()
+    y_test = torch.Tensor(y_test).float()
+    dataset = data.TensorDataset(X_train.data, y_train)
+    loader = torch.utils.data.DataLoader(
+        dataset, batch_size=100, shuffle=True, num_workers=0)
+    model = ECoG_NN(X_train.shape[1], F.sigmoid).cuda()
+    learning_rate = 1e-5
+    opt = optim.SGD(model.parameters(), lr=learning_rate, momentum=.9)
+    sq_losses = []
+
+    for epoch in tqdm(range(num_epochs)):
+        for dataset in loader:
+            train_y = Variable(dataset[1].float())
+            train_x = Variable(dataset[0].float().cuda())
+            train_y_hat = model(train_x).cpu()
+            model.zero_grad()
+            train_loss = F.mse_loss(train_y_hat, train_y).cpu()
+            train_loss.backward()
+            opt.step()
+        # X_train = X_train.to("gpu")
+        model = model.cpu()
+        all_train_y_hat = model(Variable(X_train))
+        # X_train = X_train.to("cpu")
+        # X_test = X_test.to("gpu")
+        test_y_hat = model(Variable(X_test))
+        # X_test = X_test.to("cpu")
+        all_train_loss = F.mse_loss(all_train_y_hat, Variable(y_train))
+        test_loss = F.mse_loss(test_y_hat, Variable(y_test))
+        print(epoch, all_train_loss.data.numpy(), test_loss.data.numpy())
+        sq_losses.append([all_train_loss, test_loss])
+        model = model.cuda()
+    torch.save(model, 'torch_nn')
+    train_errs = np.array([x[0].data.numpy() for x in sq_losses]).flatten()
+    test_errs = np.array([x[1].data.numpy() for x in sq_losses])
+    sns_plot = sns.regplot(range(len(train_errs)), train_errs)
+    sns_plot.savefig("train_err")
+    sns_plot = sns.regplot(range(len(test_errs)), test_errs)
+    sns_plot.savefig("test_err")
 
 
 def elbow_curve(data):
@@ -84,5 +170,5 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
     DATA_LOC = args['d']
     zeros, ones = get_data(DATA_LOC)
-    run_tpot(zeros, ones)
+    run_nn(zeros, ones)
     # elbow_curve(get_data(DATA_LOC))
