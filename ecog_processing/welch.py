@@ -104,8 +104,8 @@ def get_events(filename,
 
                         if classified[0] == 1:
                             events.append([frame_time, 0, 1])
-                        else:
-                            predicted_arr.append(np.array([np.NaN, np.NaN]))
+                    else:
+                        predicted_arr.append(np.array([np.NaN, np.NaN]))
 
     corr = [x[1] for x in predicted_arr]
 

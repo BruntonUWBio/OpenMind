@@ -13,6 +13,13 @@ import torch
 from torch.nn import functional as F
 from torch.utils import data
 from torch.autograd import Variable
+import sklearn
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline, make_union
+from sklearn.preprocessing import RobustScaler, StandardScaler
+from tpot.builtins import StackingEstimator, ZeroCount
 
 
 class ECoG_NN(nn.Module):
@@ -60,19 +67,30 @@ def run_tpot(zeros, ones):
     if not os.path.exists('tpot_checkpoint'):
         os.mkdir('tpot_checkpoint')
 
-    if not os.path.exists('tpot_cache'):
-        os.mkdir('tpot_cache')
-    tpot = TPOTClassifier(
-        n_jobs=-1,
-        verbosity=3,
-        scoring='f1',
-        subsample=.5,
-        periodic_checkpoint_folder='tpot_checkpoint',
-        max_eval_time_mins=20,
-        memory='tpot_cache')
-    tpot.fit(X_train, y_train)
-    tpot.export('tpot_ecog_pipeline.py')
-    print(tpot.score(X_test, y_test))
+    # tpot = TPOTClassifier(
+        # n_jobs=-1,
+        # verbosity=3,
+        # scoring='f1',
+        # subsample=.5,
+        # periodic_checkpoint_folder='tpot_checkpoint',
+        # max_eval_time_mins=20,
+        # memory='auto')
+    exported_pipeline = make_pipeline(
+        PolynomialFeatures(
+            degree=2, include_bias=False, interaction_only=False),
+        PCA(iterated_power=8, svd_solver="randomized"),
+        StackingEstimator(
+            estimator=LinearSVC(
+                C=0.01, dual=True, loss="squared_hinge", penalty="l2", tol=0.1)),
+        ExtraTreesClassifier(
+            bootstrap=False, criterion="gini", max_features=0.9000000000000001,
+                             min_samples_leaf=17, min_samples_split=6, n_estimators=100)
+    )
+
+    exported_pipeline.fit(X_train, y_train)
+    results = exported_pipeline.predict(X_test)
+    out_file = open('tpot_metrics.txt', 'w')
+    out_file.write(sklearn.metrics.classification_report(y_test, results))
 
 
 def pr_re(pred: np.ndarray, target: np.ndarray) -> tuple:
@@ -203,5 +221,6 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
     DATA_LOC = args['d']
     zeros, ones = get_data(DATA_LOC)
+    # run_tpot(zeros, ones)
     run_nn(zeros, ones)
     # elbow_curve(get_data(DATA_LOC))
