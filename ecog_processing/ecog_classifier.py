@@ -16,6 +16,7 @@ from torch.autograd import Variable
 
 
 class ECoG_NN(nn.Module):
+
     def __init__(self, in_features, transfer_func):
         super(ECoG_NN, self).__init__()
         self.hidden_list = []
@@ -74,27 +75,42 @@ def run_tpot(zeros, ones):
     print(tpot.score(X_test, y_test))
 
 
+def pr_re(pred: np.ndarray, target: np.ndarray) -> tuple:
+    tp = len([x for i, x in enumerate(pred) if x and target[i]])
+    fp = len([x for i, x in enumerate(pred) if x and not target[i]])
+    fn = len([x for i, x in enumerate(pred) if not x and target[i]])
+    precision = tp / (tp + fp)
+    recall = tp / (tp + fn)
+
+    return precision, recall
+
+
 def run_nn(zeros, ones):
-    num_epochs = 5000
+    num_epochs = 100
     all_data, y = make_all_data(zeros, ones)
+    all_data = all_data.reshape(
+        all_data.shape[0], all_data.shape[1] * all_data.shape[2])
+    pca = PCA(n_components=15)
+    all_data = pca.fit_transform(all_data)
     X_train, X_test, y_train, y_test = train_test_split(
-        all_data, y, test_size=.33)
-    pca = PCA(n_components=4)
-    X_train = pca.fit_transform(X_train)
-    X_test = pca.fit_transform(X_test)
+        all_data, y, stratify=y, test_size=.1)
+    # X_train = pca.fit_transform(X_train)
+    # X_test = pca.fit_transform(X_test)
     X_train = torch.from_numpy(X_train).float()
     X_test = torch.from_numpy(X_test).float()
     y_train = torch.Tensor(y_train).float()
     y_test = torch.Tensor(y_test).float()
-    dataset = data.TensorDataset(X_train.data, y_train)
+    dataset = data.TensorDataset(X_train, y_train)
     loader = torch.utils.data.DataLoader(
-        dataset, batch_size=100, shuffle=True, num_workers=0)
+        dataset, batch_size=10, shuffle=True, num_workers=0)
     model = ECoG_NN(X_train.shape[1], F.sigmoid).cuda()
-    learning_rate = 1e-5
+    learning_rate = 1e-4
     opt = optim.SGD(model.parameters(), lr=learning_rate, momentum=.9)
-    sq_losses = []
+    # sq_losses = []
+    precision = []
+    recall = []
 
-    for epoch in tqdm(range(num_epochs)):
+    for epoch in range(num_epochs):
         for dataset in loader:
             train_y = Variable(dataset[1].float())
             train_x = Variable(dataset[0].float().cuda())
@@ -105,27 +121,43 @@ def run_nn(zeros, ones):
             opt.step()
         # X_train = X_train.to("gpu")
         model = model.cpu()
-        all_train_y_hat = model(Variable(X_train))
+        # all_train_y_hat = model(Variable(X_train))
         # X_train = X_train.to("cpu")
         # X_test = X_test.to("gpu")
         test_y_hat = model(Variable(X_test))
         # X_test = X_test.to("cpu")
-        all_train_loss = F.mse_loss(all_train_y_hat, Variable(y_train))
-        test_loss = F.mse_loss(test_y_hat, Variable(y_test))
-        print(epoch, all_train_loss.data.numpy(), test_loss.data.numpy())
-        sq_losses.append([all_train_loss, test_loss])
+        # all_train_loss = F.mse_loss(all_train_y_hat, Variable(y_train))
+        # test_loss = F.mse_loss(test_y_hat, Variable(y_test))
+        # all_train_loss = np.sum(
+        #   all_train_y_hat.data.numpy()) / np.sum(y_train.numpy())
+        # test_loss = np.sum(test_y_hat.data.numpy()) / np.sum(y_test.numpy())
+        curr_precision, curr_recall = pr_re(
+            test_y_hat.data.numpy(), y_test.numpy())
+        precision.append(curr_precision)
+        recall.append(curr_recall)
+        # print(epoch, all_train_loss.data.numpy(), test_loss.data.numpy())
+        # print(epoch, all_train_loss, test_loss)
+        # sq_losses.append([all_train_loss, test_loss])
         model = model.cuda()
     torch.save(model, 'torch_nn')
-    train_errs = np.array([x[0].data.numpy() for x in sq_losses]).flatten()
-    test_errs = np.array([x[1].data.numpy() for x in sq_losses])
-    sns_plot = sns.regplot(range(len(train_errs)), train_errs)
-    sns_plot.savefig("train_err")
-    sns_plot = sns.regplot(range(len(test_errs)), test_errs)
-    sns_plot.savefig("test_err")
+    # train_errs = np.array([x[0].data.numpy() for x in sq_losses]).flatten()
+    # test_errs = np.array([x[1].data.numpy() for x in sq_losses]).flatten()
+    # sns_plot = sns.regplot(range(len(train_errs)), train_errs)
+    # sns_plot.savefig("train_err")
+    # sns_plot = sns.regplot(range(len(test_errs)), test_errs)
+    # sns_plot.savefig("test_err")
+    print(precision)
+    print(recall)
+    sns_plot = sns.regplot(
+        np.array(list(range(len(precision))), int), precision)
+    sns_plot.savefig("precision")
+    sns_plot = sns.regplot(np.array(list(range(len(recall))), int), recall)
+    sns_plot.savefig("recall")
 
 
 def elbow_curve(data):
     data = data[1]
+    data = data.reshape((data.shape[0], data.shape[1] * data.shape[2]))
     components = range(1, data.shape[1] + 1)
     explained_variance = []
 
@@ -134,12 +166,13 @@ def elbow_curve(data):
         pca.fit(data)
         explained_variance.append(sum(pca.explained_variance_ratio_))
     sns_plot = sns.regplot(
-        x=components[:50], y=explained_variance, fit_reg=False).get_figure()
+        x=np.array(components[:50]), y=explained_variance, fit_reg=False).get_figure()
     sns_plot.savefig("pca_elbow.png")
 
 
 def get_data(data_loc: str) -> tuple:
-    data_folders = [os.path.join(data_loc, x) for x in os.listdir(data_loc)]
+    data_folders = [os.path.join(data_loc, x)
+                    for x in os.listdir(data_loc) if 'cb46fd46' in x]
     out_zeros = None
     out_ones = None
 
