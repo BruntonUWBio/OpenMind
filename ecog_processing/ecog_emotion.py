@@ -61,23 +61,30 @@ def get_window_data(raw: mne.io.Raw, times, picks, eventTimes, tqdm_num,
             break
         ecog_time_arr_start = split_time[0]
         ecog_time_arr_end = split_time[len(split_time) - 1]
+        # print(ecog_time_arr_start)
         real_pos = ecog_start_time + \
             datetime.timedelta(seconds=ecog_time_arr_start /
                                ECOG_SAMPLING_FREQUENCY)
-        emote_window_end = real_pos + \
+        emote_window_end = ecog_start_time + \
             datetime.timedelta(seconds=ecog_time_arr_end /
                                ECOG_SAMPLING_FREQUENCY)
         has_event = False
         has_been_annotated = False
 
+        for_debugging = False
+
         while times:
             time = times[0]
+
+            if time < real_pos:
+                for_debugging = True
 
             if real_pos <= time < emote_window_end:
                 has_been_annotated = True
 
             if time >= emote_window_end:
                 break
+
             times.popleft()
 
         # for time in times:
@@ -95,7 +102,7 @@ def get_window_data(raw: mne.io.Raw, times, picks, eventTimes, tqdm_num,
         while eventTimes:
             eventTime = eventTimes[0]
 
-            if real_pos <= eventTime < emote_window_end:
+            if real_pos <= eventTime < emote_window_end and not has_event:
                 has_event = True
 
             if eventTime >= emote_window_end:
@@ -113,7 +120,7 @@ def get_window_data(raw: mne.io.Raw, times, picks, eventTimes, tqdm_num,
         # try:
         data, ecog_times = raw[picks, ecog_time_arr_start:ecog_time_arr_end]
         data = da.from_array(data, chunks=(1000, -1))
-        psd = welch(data)
+        psd = welch(data, 1000)
         # print("DIFFERENCE BETWEEN ECOG TIMES IS: {0}".format(
         # ecog_time_arr_end - ecog_time_arr_start))
 
@@ -121,22 +128,31 @@ def get_window_data(raw: mne.io.Raw, times, picks, eventTimes, tqdm_num,
             freqs = psd[0]
 
         psd_data = psd[1]
+        try:
+            psd_data = (psd_data - np.mean(psd_data, 1)[:, None]) / (np.std(
+                psd_data, 1)[:, None])  # Rescale data
+        except RuntimeWarning:
+            continue
 
         if np.allclose(psd_data, np.zeros(psd_data.shape)):
+            print('all 0')
+
             continue
 
         if has_event:
             if one_data is None:
-                one_data = da.from_array(psd[1], chunks=(10000, -1))
+                one_data = da.from_array(
+                    np.array([psd_data]), chunks=(10000, -1, -1))
             else:
-                one_data = da.concatenate([one_data, psd[1]])
+                one_data = da.concatenate([one_data, np.array([psd_data])])
                 # da.rechunk(one_data, chunks=(10000, -1))
                 one_data = one_data.compute()
         else:
             if zero_data is None:
-                zero_data = da.from_array(psd[1], chunks=(10000, -1))
+                zero_data = da.from_array(
+                    np.array([psd_data]), chunks=(10000, -1, -1))
             else:
-                zero_data = da.concatenate([zero_data, psd[1]])
+                zero_data = da.concatenate([zero_data, np.array([psd_data])])
                 # da.rechunk(zero_data, chunks=(10000, -1))
                 zero_data = zero_data.compute()
 
@@ -201,12 +217,12 @@ def find_filename_data(au_emote_dict_loc, classifier_loc, real_time_file_loc,
             if temp_zero_data is not None:
                 da.to_npy_stack(
                     os.path.join(filename_out_dir, '0'),
-                    da.from_array(temp_zero_data, chunks=(10000, -1)))
+                    da.from_array(temp_zero_data, chunks=(10000, -1, -1)))
 
             if temp_one_data is not None:
                 da.to_npy_stack(
                     os.path.join(filename_out_dir, '1'),
-                    da.from_array(temp_one_data, chunks=(10000, -1)))
+                    da.from_array(temp_one_data, chunks=(10000, -1, -1)))
     out_q.put((filename, len(times)))
 
 
@@ -297,17 +313,17 @@ if __name__ == '__main__':
     f = functools.partial(find_filename_data, AU_EMOTE_DICT_LOC,
                           CLASSIFIER_LOC, REAL_TIME_FILE_LOC, OUT_FILE_PATH,
                           out_q)
-    NUM_PROCESSES = 5
+    num_processes = 5
     with tqdm(total=len(filenames)) as pbar:
-        p = Pool(NUM_PROCESSES)
+        p = Pool(num_processes)
 
-        for iteration, _ in enumerate(p.uimap(f, enumerate(filenames))):
-            pbar.update()
+    for iteration, _ in enumerate(p.uimap(f, enumerate(filenames))):
+        pbar.update()
 
-        # for filename in filenames:
-        # find_filename_data(AU_EMOTE_DICT_LOC, CLASSIFIER_LOC,
-        # REAL_TIME_FILE_LOC, OUT_FILE_PATH, out_q,
-        # (0, filename))
-        out_q.put('kill')
-        p.close()
-        p.join()
+    # for filename in tqdm(filenames):
+    # find_filename_data(AU_EMOTE_DICT_LOC, CLASSIFIER_LOC,
+    # REAL_TIME_FILE_LOC, OUT_FILE_PATH, out_q,
+    # (0, filename))
+    out_q.put('kill')
+    p.close()
+    p.join()
