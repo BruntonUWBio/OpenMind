@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('agg')
 from threading import Thread
 import argparse
 from collections import deque
@@ -14,6 +16,7 @@ import sys
 import os
 import numpy as np
 import mne
+import matplotlib.pyplot as plt
 from glob import glob
 from chest import Chest
 from mne.io import read_raw_edf
@@ -39,19 +42,57 @@ def suppress_stdout():
             sys.stdout = old_stdout
 
 
-def get_window_data(raw: mne.io.Raw, times, picks, eventTimes, tqdm_num,
+def clean_times(times: deque, prev_pos: datetime.datetime,
+                real_pos: datetime.datetime, emote_window_end):
+    num_times = 0
+    has_been_annotated = False
+
+    for time in times:
+        if prev_pos <= time < emote_window_end:
+            num_times += 1
+            has_been_annotated = True
+
+        if time >= emote_window_end:
+            break
+
+    while times:
+        time = times[0]
+
+        if time <= real_pos:
+            times.popleft()
+        else:
+            break
+
+    return num_times, has_been_annotated
+
+
+def get_window_data(raw: mne.io.Raw, times, corr, picks, eventTimes, tqdm_num,
                     filename) -> tuple:
     ECOG_SAMPLING_FREQUENCY = 1000  # ECoG samples at a rate of 1000 Hz
     EVENT_DELTA_SECONDS = 1
     all_times = len(raw)
     times = deque(sorted(times))
+    # times_corr = deque(sorted(zip(times, corr), key=lambda x: x[0]))
+    # plot_times = []
+    # plot_probs = []
+    EVENT_THRESHOLD = .25
+
+    # for time in times:
+    # if time in eventTimes:
+    # plot_ones.append[time]
+    # else:
+    # plot_zeros.append[time]
+
     eventTimes = deque(sorted(list(eventTimes)))
     ecog_start_time = sorted(times)[0]
-    one_data = None
-    zero_data = None
+    all_data = None
+    labels = None
     range_times = np.arange(all_times)
     split_range_times = np.array_split(
-        range_times, int(len(range_times) / (ECOG_SAMPLING_FREQUENCY)))
+        range_times,
+        int(
+            len(range_times) /
+            (EVENT_DELTA_SECONDS * ECOG_SAMPLING_FREQUENCY)))
     freqs = None
 
     for index, split_time in enumerate(
@@ -62,30 +103,17 @@ def get_window_data(raw: mne.io.Raw, times, picks, eventTimes, tqdm_num,
         ecog_time_arr_start = split_time[0]
         ecog_time_arr_end = split_time[len(split_time) - 1]
         # print(ecog_time_arr_start)
-        real_pos = ecog_start_time + \
+        curr_pos = ecog_start_time + \
             datetime.timedelta(seconds=ecog_time_arr_start /
                                ECOG_SAMPLING_FREQUENCY)
-        emote_window_end = ecog_start_time + \
+        prev_pos = curr_pos - \
+            datetime.timedelta(seconds=EVENT_DELTA_SECONDS)
+        end_pos = ecog_start_time + \
             datetime.timedelta(seconds=ecog_time_arr_end /
                                ECOG_SAMPLING_FREQUENCY)
-        has_event = False
-        has_been_annotated = False
+        # curr_corrs = []
 
-        for_debugging = False
-
-        while times:
-            time = times[0]
-
-            if time < real_pos:
-                for_debugging = True
-
-            if real_pos <= time < emote_window_end:
-                has_been_annotated = True
-
-            if time >= emote_window_end:
-                break
-
-            times.popleft()
+        # curr_corrs.append(times_corr.popleft()[1])
 
         # for time in times:
         # if real_pos <= time <= emote_window_end:
@@ -95,34 +123,27 @@ def get_window_data(raw: mne.io.Raw, times, picks, eventTimes, tqdm_num,
 
         # if time > emote_window_end:
         # break
+        num_times, has_been_annotated = clean_times(times, prev_pos, curr_pos,
+                                                    end_pos)
 
         if not has_been_annotated:
             continue
 
-        while eventTimes:
-            eventTime = eventTimes[0]
+        num_events, _ = clean_times(eventTimes, prev_pos, curr_pos, end_pos)
 
-            if real_pos <= eventTime < emote_window_end and not has_event:
-                has_event = True
+        prob = num_events / num_times
+        has_event = prob >= EVENT_THRESHOLD
 
-            if eventTime >= emote_window_end:
-                break
-            eventTimes.popleft()
-
-        # for event_time in eventTimes:
-        # if real_pos <= event_time < emote_window_end:
+        # if prob >= EVENT_THRESHOLD:
         # has_event = True
-
-        # break
-
-        # if event_time > emote_window_end:
-        # break
-        # try:
+        # else:
+        # plot_times.append(real_pos)
+        # plot_probs.append(prob)
+        label = 1 if has_event else 0
+        # label = 1 if np.mean(curr_corrs) >= EVENT_THRESHOLD else 0
         data, ecog_times = raw[picks, ecog_time_arr_start:ecog_time_arr_end]
         data = da.from_array(data, chunks=(1000, -1))
         psd = welch(data, 1000)
-        # print("DIFFERENCE BETWEEN ECOG TIMES IS: {0}".format(
-        # ecog_time_arr_end - ecog_time_arr_start))
 
         if freqs is None:
             freqs = psd[0]
@@ -134,29 +155,48 @@ def get_window_data(raw: mne.io.Raw, times, picks, eventTimes, tqdm_num,
         except RuntimeWarning:
             continue
 
-        if np.allclose(psd_data, np.zeros(psd_data.shape)):
-            print('all 0')
+        # if np.allclose(psd_data, np.zeros(psd_data.shape)):
+        # print('all 0')
 
-            continue
+        # continue
 
-        if has_event:
-            if one_data is None:
-                one_data = da.from_array(
-                    np.array([psd_data]), chunks=(10000, -1, -1))
-            else:
-                one_data = da.concatenate([one_data, np.array([psd_data])])
-                # da.rechunk(one_data, chunks=(10000, -1))
-                one_data = one_data.compute()
+        if all_data is None:
+            all_data = da.from_array(
+                np.array([psd_data]), chunks=(10000, -1, -1))
         else:
-            if zero_data is None:
-                zero_data = da.from_array(
-                    np.array([psd_data]), chunks=(10000, -1, -1))
-            else:
-                zero_data = da.concatenate([zero_data, np.array([psd_data])])
-                # da.rechunk(zero_data, chunks=(10000, -1))
-                zero_data = zero_data.compute()
+            all_data = da.concatenate([all_data,
+                                       np.array([psd_data])]).compute()
 
-    return freqs, one_data, zero_data
+        if labels is None:
+            labels = da.from_array(np.array([label]), chunks=(10000, ))
+        else:
+            labels = da.concatenate([labels, np.array([label])])
+    # plot_dates = matplotlib.dates.date2num(plot_times)
+    # plt.figure()
+    # plt.plot(
+    # plot_dates[:100],
+    # plot_probs[:100],
+    # # label='Not Happy',
+    # marker='o',
+    # linestyle='None')
+    # # plt.plot(
+    # # plot_dates,
+    # # plot_zeros,
+    # # label='Not Happy',
+    # # marker='o',
+    # # linestyle='None')
+    # plt.xlabel('Time')
+    # plt.ylabel('Proportion of Happy in timespan')
+    # # plt.legend()
+
+    # if not os.path.exists(str(EVENT_THRESHOLD)):
+    # os.mkdir(str(EVENT_THRESHOLD))
+    # plt.savefig(
+    # os.path.join(
+    # str(EVENT_THRESHOLD),
+    # os.path.basename(filename).replace('.edf', '') + '.png'))
+
+    return freqs, all_data, labels
 
 
 def find_filename_data(au_emote_dict_loc, classifier_loc, real_time_file_loc,
@@ -197,9 +237,9 @@ def find_filename_data(au_emote_dict_loc, classifier_loc, real_time_file_loc,
     if times:
         predicDic = {time: predic for time, predic in zip(times, corr)}
         eventTimes = set(x[0] for x in events)
-        picks = mne.pick_types(raw.info, ecog=True)
-        freqs, temp_one_data, temp_zero_data = get_window_data(
-            raw, times, picks, eventTimes, tqdm_num, filename)
+        picks = mne.pick_types(raw.info, ecog=True, ecg=True)
+        freqs, temp_all_data, temp_labels = get_window_data(
+            raw, times, corr, picks, eventTimes, tqdm_num, filename)
 
         if freqs is not None:
             freqs = da.from_array(freqs, chunks=(100, ))
@@ -214,15 +254,15 @@ def find_filename_data(au_emote_dict_loc, classifier_loc, real_time_file_loc,
 
             da.to_npy_stack(os.path.join(filename_out_dir, 'freqs'), freqs)
 
-            if temp_zero_data is not None:
+            if temp_all_data is not None:
                 da.to_npy_stack(
-                    os.path.join(filename_out_dir, '0'),
-                    da.from_array(temp_zero_data, chunks=(10000, -1, -1)))
+                    os.path.join(filename_out_dir, 'data'),
+                    da.from_array(temp_all_data, chunks=(10000, -1, -1)))
 
-            if temp_one_data is not None:
+            if temp_labels is not None:
                 da.to_npy_stack(
-                    os.path.join(filename_out_dir, '1'),
-                    da.from_array(temp_one_data, chunks=(10000, -1, -1)))
+                    os.path.join(filename_out_dir, 'labels'),
+                    da.from_array(temp_labels, chunks=(10000, )))
     out_q.put((filename, len(times)))
 
 
@@ -250,15 +290,16 @@ def listener(fn, q):
 
             if m == 'kill':
                 break
-            f = open(fn, 'r')
-            curr_arr = json.load(f)
+            with open(fn, 'r') as f:
+                curr_arr = json.load(f)
 
-            if m not in curr_arr:
-                curr_arr[m[0]] = m[1]
-            f = open(fn, 'w')
-            json.dump(curr_arr, f)
-            f.flush()
-    f.close()
+                if m not in curr_arr:
+                    curr_arr[m[0]] = m[1]
+
+            with open(fn, 'w') as f:
+                json.dump(curr_arr, f)
+                f.flush()
+    # f.close()
 
 
 def clean_base(fn):
