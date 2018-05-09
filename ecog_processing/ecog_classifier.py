@@ -52,7 +52,8 @@ def make_all_data(zeros, ones):
     y = [0 for x in zeros]
     y.extend([1 for x in ones])
     all_data = da.concatenate([zeros, ones]).compute()
-
+    all_data = all_data.reshape(all_data.shape[0], all_data.shape[1] * all_data.shape[2])
+    all_data = np.nan_to_num(all_data)
     return all_data, y
 
 
@@ -67,28 +68,17 @@ def run_tpot(zeros, ones):
     if not os.path.exists('tpot_checkpoint'):
         os.mkdir('tpot_checkpoint')
 
-    # tpot = TPOTClassifier(
-        # n_jobs=-1,
-        # verbosity=3,
-        # scoring='f1',
-        # subsample=.5,
-        # periodic_checkpoint_folder='tpot_checkpoint',
-        # max_eval_time_mins=20,
-        # memory='auto')
-    exported_pipeline = make_pipeline(
-        PolynomialFeatures(
-            degree=2, include_bias=False, interaction_only=False),
-        PCA(iterated_power=8, svd_solver="randomized"),
-        StackingEstimator(
-            estimator=LinearSVC(
-                C=0.01, dual=True, loss="squared_hinge", penalty="l2", tol=0.1)),
-        ExtraTreesClassifier(
-            bootstrap=False, criterion="gini", max_features=0.9000000000000001,
-                             min_samples_leaf=17, min_samples_split=6, n_estimators=100)
-    )
+    tpot = TPOTClassifier(
+        n_jobs=-1,
+        verbosity=3,
+        scoring='f1',
+        subsample=.5,
+        periodic_checkpoint_folder='tpot_checkpoint',
+        max_eval_time_mins=20,
+        memory='auto')
 
-    exported_pipeline.fit(X_train, y_train)
-    results = exported_pipeline.predict(X_test)
+    tpot.fit(X_train, y_train)
+    results = tpot.predict(X_test)
     out_file = open('tpot_metrics.txt', 'w')
     out_file.write(sklearn.metrics.classification_report(y_test, results))
 
@@ -221,6 +211,6 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
     DATA_LOC = args['d']
     zeros, ones = get_data(DATA_LOC)
-    # run_tpot(zeros, ones)
-    run_nn(zeros, ones)
+    run_tpot(zeros, ones)
+    # run_nn(zeros, ones)
     # elbow_curve(get_data(DATA_LOC))
