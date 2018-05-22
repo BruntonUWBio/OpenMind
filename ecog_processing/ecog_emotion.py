@@ -142,7 +142,7 @@ def get_window_data(raw: mne.io.Raw,
         if not has_been_annotated:
             continue
 
-        num_events, _ = clean_times(eventTimes, curr_pos, curr_pos, end_pos)
+        num_events, _ = clean_times(eventTimes, prev_pos, curr_pos, end_pos)
 
         prob = num_events / num_times
         has_event = prob >= EVENT_THRESHOLD

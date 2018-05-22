@@ -3,9 +3,8 @@ import os
 from glob import glob
 from queue import Queue
 import json
-import matplotlib
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
+import plotly.plotly as py
+import plotly.graph_objs as go
 
 if __name__ == '__main__':
     args = get_args()
@@ -35,21 +34,34 @@ if __name__ == '__main__':
 
             if returnVal is not None:
                 times, probs = returnVal
-                f, ax1 = plt.subplots()
-                times = times[:3]
-                probs = probs[:3]
-                ax1.bar(times, probs, label='Happy', width=1)
-                ax1.bar(
-                    times, [1 - x for x in probs],
-                    bottom=probs,
-                    label='Not Happy',
-                    width=1)
-                ax1.set_xlabel("Time")
-                ax1.set_ylabel("Probability")
-                plt.legend()
-                plt.savefig(
-                    os.path.join(OUT_FILE_PATH,
-                                 os.path.basename(filename).replace(
-                                     '.edf', '') + '.png'))
-                plt.clf()
-                plt.cla()
+                trace1 = go.Bar(x=times, y=probs, name='Happy')
+                trace2 = go.Bar(
+                    x=times, y=[1 - x for x in probs], name='Not Happy')
+                data = [trace1, trace2]
+                layout = go.Layout(barmode='stack')
+
+                fig = go.Figure(data=data, layout=layout)
+                py.plot(
+                    fig,
+                    filename=os.path.basename(filename),
+                    fileopt='overwrite',
+                    auto_open=False)
+
+                # f, ax1 = plt.subplots()
+                # times = times[:3]
+                # probs = probs[:3]
+                # ax1.bar(times, probs, label='Happy', width=1)
+                # ax1.bar(
+                # times, [1 - x for x in probs],
+                # bottom=probs,
+                # label='Not Happy',
+                # width=1)
+                # ax1.set_xlabel("Time")
+                # ax1.set_ylabel("Probability")
+                # plt.legend()
+                # plt.savefig(
+                # os.path.join(OUT_FILE_PATH,
+                # os.path.basename(filename).replace(
+                # '.edf', '') + '.png'))
+                # plt.clf()
+                # plt.cla()
