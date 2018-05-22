@@ -68,14 +68,25 @@ def clean_times(times: deque, prev_pos: datetime.datetime,
 
 
 def get_window_data(raw: mne.io.Raw, times, corr, picks, eventTimes, tqdm_num,
-                    filename) -> tuple:
+                    filename, return_plot_data=False, event_delta_seconds=1) -> tuple:
     ECOG_SAMPLING_FREQUENCY = 1000  # ECoG samples at a rate of 1000 Hz
+<< << << < HEAD
     EVENT_DELTA_SECONDS = 60
     all_times = len(raw)
     times = deque(sorted(times))
     # times_corr = deque(sorted(zip(times, corr), key=lambda x: x[0]))
     plot_times = []
     plot_probs = []
+== == == =
+    EVENT_DELTA_SECONDS = event_delta_seconds
+    all_times = len(raw)
+    times = deque(sorted(times))
+    # times_corr = deque(sorted(zip(times, corr), key=lambda x: x[0]))
+
+    if return_plot_data:
+        plot_times = []
+        plot_probs = []
+>>>>>> > 533ea2aaed598cfae1c7fa6448c7d5098391512b
     EVENT_THRESHOLD = .25
 
     # for time in times:
@@ -142,10 +153,9 @@ def get_window_data(raw: mne.io.Raw, times, corr, picks, eventTimes, tqdm_num,
         # has_event = True
         # else:
 
-        if 'cb46fd46_5' in filename:
-            print(curr_pos)
-        plot_times.append(curr_pos)
-        plot_probs.append(prob)
+        if return_plot_data:
+            plot_times.append(curr_pos)
+            plot_probs.append(prob)
         label = 1 if has_event else 0
         # label = 1 if np.mean(curr_corrs) >= EVENT_THRESHOLD else 0
         data, ecog_times = raw[picks, ecog_time_arr_prev:ecog_time_arr_end]
@@ -189,32 +199,14 @@ def get_window_data(raw: mne.io.Raw, times, corr, picks, eventTimes, tqdm_num,
 
     formatter = DateFormatter('%d/%H')
     ax.xaxis.set_major_formatter(formatter)
-    # plt.plot(
-    # plot_dates,
-    # plot_zeros,
-    # label='Not Happy',
-    # marker='o',
-    # linestyle='None')
-    plt.xlabel('Time')
-    plt.xticks(rotation=30)
-    plt.ylabel('Proportion of Happy in timespan')
-    # plt.legend()
 
-    if not os.path.exists(str(EVENT_THRESHOLD)):
-        os.mkdir(str(EVENT_THRESHOLD))
-    plt.savefig(
-        os.path.join(
-            str(EVENT_THRESHOLD),
-            os.path.basename(filename).replace('.edf', '') + '.png'))
-
-    return freqs, all_data, labels
+    if return_plot_data:
+        return plot_times, plot_probs
+    else:
+        return freqs, all_data, labels
 
 
-def find_filename_data(au_emote_dict_loc, classifier_loc, real_time_file_loc,
-                       out_loc, out_q, filename):
-    tqdm_num, filename = filename
-    tqdm_num = (tqdm_num % 5) + 1
-    au_emote_dict = json.load(open(au_emote_dict_loc))
+def map_raw(filename: str):
     try:
         with suppress_stdout():
             raw = read_raw_edf(filename, preload=False)
@@ -224,6 +216,7 @@ def find_filename_data(au_emote_dict_loc, classifier_loc, real_time_file_loc,
         return
     mapping = {
         ch_name: 'ecog'
+
         for ch_name in raw.ch_names if 'GRID' in ch_name
     }  # type: Dict[str, str]
     mapping.update(
@@ -238,6 +231,15 @@ def find_filename_data(au_emote_dict_loc, classifier_loc, real_time_file_loc,
 
     raw.set_channel_types(mapping)
 
+    return raw
+
+
+def find_filename_data(au_emote_dict_loc, classifier_loc, real_time_file_loc,
+                       out_loc, out_q, filename, return_plot_data=False, event_delta_seconds=1):
+    tqdm_num, filename = filename
+    tqdm_num = (tqdm_num % 5) + 1
+    au_emote_dict = json.load(open(au_emote_dict_loc))
+    raw = map_raw(filename)
     events, times, corr = get_events(filename, au_emote_dict, classifier_loc,
                                      real_time_file_loc)
 
@@ -249,8 +251,12 @@ def find_filename_data(au_emote_dict_loc, classifier_loc, real_time_file_loc,
         predicDic = {time: predic for time, predic in zip(times, corr)}
         eventTimes = set(x[0] for x in events)
         picks = mne.pick_types(raw.info, ecog=True, ecg=True)
+
+        if return_plot_data:
+            return get_window_data(raw, times, corr, picks, eventTimes, tqdm_num, filename, return_plot_data, event_delta_seconds)
+
         freqs, temp_all_data, temp_labels = get_window_data(
-            raw, times, corr, picks, eventTimes, tqdm_num, filename)
+            raw, times, corr, picks, eventTimes, tqdm_num, filename, return_plot_data, event_delta_seconds)
 
         if freqs is not None:
             freqs = da.from_array(freqs, chunks=(100, ))
@@ -317,7 +323,7 @@ def clean_base(fn):
     return os.path.basename(fn).replace('.edf', '')
 
 
-if __name__ == '__main__':
+def get_args():
     parser = argparse.ArgumentParser(prog='ecog_emotion')
     parser.add_argument('-e', required=True, help="Path to edf directory")
     parser.add_argument(
@@ -329,6 +335,11 @@ if __name__ == '__main__':
     parser.add_argument(
         '-a', required=True, help='Parent directory of already_done_file')
     args = vars(parser.parse_args())
+
+    return args
+
+if __name__ == '__main__':
+    args = get_args()
     EDF_DIR = args['e']
     MY_COMP = args['c']
     AU_EMOTE_DICT_LOC = args['au']
@@ -350,7 +361,9 @@ if __name__ == '__main__':
         os.path.join(OUT_FILE_PATH, 'classifier_data'))
     filenames = [
         x
+
         for x in clean_filenames(filenames, json.load(open(AU_EMOTE_DICT_LOC)))
+
         if (clean_base(x) not in already_done_dirs and (
             x not in already_done_dict or (already_done_dict[x] > 0)))
     ]
