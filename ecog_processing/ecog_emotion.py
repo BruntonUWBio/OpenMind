@@ -29,6 +29,7 @@ from scipy.signal import welch
 from contextlib import contextmanager
 # from memory_profiler import profile
 from dask.diagnostics import ProgressBar
+from matplotlib.dates import DateFormatter
 
 
 @contextmanager
@@ -69,12 +70,12 @@ def clean_times(times: deque, prev_pos: datetime.datetime,
 def get_window_data(raw: mne.io.Raw, times, corr, picks, eventTimes, tqdm_num,
                     filename) -> tuple:
     ECOG_SAMPLING_FREQUENCY = 1000  # ECoG samples at a rate of 1000 Hz
-    EVENT_DELTA_SECONDS = 1
+    EVENT_DELTA_SECONDS = 60
     all_times = len(raw)
     times = deque(sorted(times))
     # times_corr = deque(sorted(zip(times, corr), key=lambda x: x[0]))
-    # plot_times = []
-    # plot_probs = []
+    plot_times = []
+    plot_probs = []
     EVENT_THRESHOLD = .25
 
     # for time in times:
@@ -100,14 +101,17 @@ def get_window_data(raw: mne.io.Raw, times, corr, picks, eventTimes, tqdm_num,
 
         if not times:
             break
+        prev_range = split_range_times[index - 1]
+        ecog_time_arr_prev = prev_range[0]
         ecog_time_arr_start = split_time[0]
         ecog_time_arr_end = split_time[len(split_time) - 1]
         # print(ecog_time_arr_start)
         curr_pos = ecog_start_time + \
             datetime.timedelta(seconds=ecog_time_arr_start /
                                ECOG_SAMPLING_FREQUENCY)
-        prev_pos = curr_pos - \
-            datetime.timedelta(seconds=EVENT_DELTA_SECONDS)
+        prev_pos = ecog_start_time + \
+            datetime.timedelta(seconds=ecog_time_arr_prev /
+                               ECOG_SAMPLING_FREQUENCY)
         end_pos = ecog_start_time + \
             datetime.timedelta(seconds=ecog_time_arr_end /
                                ECOG_SAMPLING_FREQUENCY)
@@ -129,7 +133,7 @@ def get_window_data(raw: mne.io.Raw, times, corr, picks, eventTimes, tqdm_num,
         if not has_been_annotated:
             continue
 
-        num_events, _ = clean_times(eventTimes, prev_pos, curr_pos, end_pos)
+        num_events, _ = clean_times(eventTimes, curr_pos, curr_pos, end_pos)
 
         prob = num_events / num_times
         has_event = prob >= EVENT_THRESHOLD
@@ -137,11 +141,14 @@ def get_window_data(raw: mne.io.Raw, times, corr, picks, eventTimes, tqdm_num,
         # if prob >= EVENT_THRESHOLD:
         # has_event = True
         # else:
-        # plot_times.append(real_pos)
-        # plot_probs.append(prob)
+
+        if 'cb46fd46_5' in filename:
+            print(curr_pos)
+        plot_times.append(curr_pos)
+        plot_probs.append(prob)
         label = 1 if has_event else 0
         # label = 1 if np.mean(curr_corrs) >= EVENT_THRESHOLD else 0
-        data, ecog_times = raw[picks, ecog_time_arr_start:ecog_time_arr_end]
+        data, ecog_times = raw[picks, ecog_time_arr_prev:ecog_time_arr_end]
         data = da.from_array(data, chunks=(1000, -1))
         psd = welch(data, 1000)
 
@@ -172,29 +179,33 @@ def get_window_data(raw: mne.io.Raw, times, corr, picks, eventTimes, tqdm_num,
         else:
             labels = da.concatenate([labels, np.array([label])])
     # plot_dates = matplotlib.dates.date2num(plot_times)
-    # plt.figure()
+    fig, ax = plt.subplots()
+    plt.plot_date(
+        plot_times,
+        plot_probs,
+        # label='Not Happy',
+        marker='o',
+        linestyle='None')
+
+    formatter = DateFormatter('%d/%H')
+    ax.xaxis.set_major_formatter(formatter)
     # plt.plot(
-    # plot_dates[:100],
-    # plot_probs[:100],
-    # # label='Not Happy',
+    # plot_dates,
+    # plot_zeros,
+    # label='Not Happy',
     # marker='o',
     # linestyle='None')
-    # # plt.plot(
-    # # plot_dates,
-    # # plot_zeros,
-    # # label='Not Happy',
-    # # marker='o',
-    # # linestyle='None')
-    # plt.xlabel('Time')
-    # plt.ylabel('Proportion of Happy in timespan')
-    # # plt.legend()
+    plt.xlabel('Time')
+    plt.xticks(rotation=30)
+    plt.ylabel('Proportion of Happy in timespan')
+    # plt.legend()
 
-    # if not os.path.exists(str(EVENT_THRESHOLD)):
-    # os.mkdir(str(EVENT_THRESHOLD))
-    # plt.savefig(
-    # os.path.join(
-    # str(EVENT_THRESHOLD),
-    # os.path.basename(filename).replace('.edf', '') + '.png'))
+    if not os.path.exists(str(EVENT_THRESHOLD)):
+        os.mkdir(str(EVENT_THRESHOLD))
+    plt.savefig(
+        os.path.join(
+            str(EVENT_THRESHOLD),
+            os.path.basename(filename).replace('.edf', '') + '.png'))
 
     return freqs, all_data, labels
 
