@@ -147,10 +147,6 @@ def get_window_data(raw: mne.io.Raw,
         prob = num_events / num_times
         has_event = prob >= EVENT_THRESHOLD
 
-        # if prob >= EVENT_THRESHOLD:
-        # has_event = True
-        # else:
-
         if return_plot_data:
             plot_times.append(curr_pos)
             plot_probs.append(prob)
@@ -187,16 +183,6 @@ def get_window_data(raw: mne.io.Raw,
         else:
             labels = da.concatenate([labels, np.array([label])])
     # plot_dates = matplotlib.dates.date2num(plot_times)
-    fig, ax = plt.subplots()
-    plt.plot_date(
-        plot_times,
-        plot_probs,
-        # label='Not Happy',
-        marker='o',
-        linestyle='None')
-
-    formatter = DateFormatter('%d/%H')
-    ax.xaxis.set_major_formatter(formatter)
 
     if return_plot_data:
         return plot_times, plot_probs
