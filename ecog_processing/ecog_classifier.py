@@ -52,6 +52,7 @@ def make_all_data(zeros, ones):
     y = [0 for x in zeros]
     y.extend([1 for x in ones])
     all_data = da.concatenate([zeros, ones]).compute()
+    all_data = np.nan_to_num(all_data)
 
     return all_data, y
 
