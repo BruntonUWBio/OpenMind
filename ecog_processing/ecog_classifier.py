@@ -23,7 +23,6 @@ from tpot.builtins import StackingEstimator, ZeroCount
 
 
 class ECoG_NN(nn.Module):
-
     def __init__(self, in_features, transfer_func):
         super(ECoG_NN, self).__init__()
         self.hidden_list = []
@@ -52,8 +51,10 @@ def make_all_data(zeros, ones):
     y = [0 for x in zeros]
     y.extend([1 for x in ones])
     all_data = da.concatenate([zeros, ones]).compute()
-    all_data = all_data.reshape(all_data.shape[0], all_data.shape[1] * all_data.shape[2])
+    all_data = all_data.reshape(all_data.shape[0],
+                                all_data.shape[1] * all_data.shape[2])
     all_data = np.nan_to_num(all_data)
+
     return all_data, y
 
 
@@ -81,6 +82,7 @@ def run_tpot(zeros, ones):
     results = tpot.predict(X_test)
     out_file = open('tpot_metrics.txt', 'w')
     out_file.write(sklearn.metrics.classification_report(y_test, results))
+    tpot.export('tpot_ecog_pipeline.py')
 
 
 def pr_re(pred: np.ndarray, target: np.ndarray) -> tuple:
@@ -96,8 +98,8 @@ def pr_re(pred: np.ndarray, target: np.ndarray) -> tuple:
 def run_nn(zeros, ones):
     num_epochs = 100
     all_data, y = make_all_data(zeros, ones)
-    all_data = all_data.reshape(
-        all_data.shape[0], all_data.shape[1] * all_data.shape[2])
+    all_data = all_data.reshape(all_data.shape[0],
+                                all_data.shape[1] * all_data.shape[2])
     pca = PCA(n_components=15)
     all_data = pca.fit_transform(all_data)
     X_train, X_test, y_train, y_test = train_test_split(
@@ -139,8 +141,8 @@ def run_nn(zeros, ones):
         # all_train_loss = np.sum(
         #   all_train_y_hat.data.numpy()) / np.sum(y_train.numpy())
         # test_loss = np.sum(test_y_hat.data.numpy()) / np.sum(y_test.numpy())
-        curr_precision, curr_recall = pr_re(
-            test_y_hat.data.numpy(), y_test.numpy())
+        curr_precision, curr_recall = pr_re(test_y_hat.data.numpy(),
+                                            y_test.numpy())
         precision.append(curr_precision)
         recall.append(curr_recall)
         # print(epoch, all_train_loss.data.numpy(), test_loss.data.numpy())
@@ -174,13 +176,16 @@ def elbow_curve(data):
         pca.fit(data)
         explained_variance.append(sum(pca.explained_variance_ratio_))
     sns_plot = sns.regplot(
-        x=np.array(components[:50]), y=explained_variance, fit_reg=False).get_figure()
+        x=np.array(components[:50]), y=explained_variance,
+        fit_reg=False).get_figure()
     sns_plot.savefig("pca_elbow.png")
 
 
 def get_data(data_loc: str) -> tuple:
-    data_folders = [os.path.join(data_loc, x)
-                    for x in os.listdir(data_loc) if 'cb46fd46' in x]
+    data_folders = [
+        os.path.join(data_loc, x) for x in os.listdir(data_loc)
+        if 'cb46fd46' in x
+    ]
     out_zeros = None
     out_ones = None
 
@@ -205,11 +210,17 @@ def get_data(data_loc: str) -> tuple:
     return out_zeros.compute(), out_ones.compute()
 
 
-if __name__ == '__main__':
+def get_data_loc() -> str:
     parser = argparse.ArgumentParser(prog='ecog_classifier')
     parser.add_argument('-d', required=True, help="Path to data")
     args = vars(parser.parse_args())
     DATA_LOC = args['d']
+
+    return DATA_LOC
+
+
+if __name__ == '__main__':
+    DATA_LOC = get_data_loc()
     zeros, ones = get_data(DATA_LOC)
     run_tpot(zeros, ones)
     # run_nn(zeros, ones)
