@@ -6,7 +6,7 @@ import seaborn as sns
 import argparse
 import h5py
 from tqdm import tqdm
-from tpot import TPOTClassifier
+from tpot import TPOTRegressor, TPOTClassifier
 from sklearn.model_selection import train_test_split
 from torch import nn, optim
 import torch
@@ -20,6 +20,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline, make_union
 from sklearn.preprocessing import RobustScaler, StandardScaler
 from tpot.builtins import StackingEstimator, ZeroCount
+from sklearn.decomposition import LatentDirichletAllocation as LDA
 
 
 class ECoG_NN(nn.Module):
@@ -47,38 +48,41 @@ class ECoG_NN(nn.Module):
         return x
 
 
-def make_all_data(zeros, ones):
-    y = [0 for x in zeros]
-    y.extend([1 for x in ones])
-    all_data = da.concatenate([zeros, ones]).compute()
+def make_all_data(all_data, labels):
+    # y = [0 for x in zeros]
+    # y.extend([1 for x in ones])
+    # all_data = da.concatenate([zeros, ones]).compute()
     all_data = all_data.reshape(all_data.shape[0],
                                 all_data.shape[1] * all_data.shape[2])
     all_data = np.nan_to_num(all_data)
+    labels = np.nan_to_num(labels)
 
-    return all_data, y
+    return all_data, labels
 
 
 def run_tpot(zeros, ones):
     all_data, y = make_all_data(zeros, ones)
     X_train, X_test, y_train, y_test = train_test_split(
-        all_data, y, test_size=.33)
-    pca = PCA(n_components=5)
+        all_data, y, test_size=.1)
+    pca = PCA(n_components=15)
     X_train = pca.fit_transform(X_train)
     X_test = pca.fit_transform(X_test)
 
-    if not os.path.exists('tpot_checkpoint'):
-        os.mkdir('tpot_checkpoint')
+    # if not os.path.exists('tpot_checkpoint'):
+    # os.mkdir('tpot_checkpoint')
 
     tpot = TPOTClassifier(
         n_jobs=-1,
+        generations=50,
         verbosity=3,
         scoring='f1',
-        subsample=.5,
-        periodic_checkpoint_folder='tpot_checkpoint',
-        max_eval_time_mins=20,
+        # subsample=.5,
+        # periodic_checkpoint_folder='tpot_checkpoint',
+        max_eval_time_mins=30,
         memory='auto')
 
     tpot.fit(X_train, y_train)
+    tpot.export('tpot_ecog_pipeline.py')
     results = tpot.predict(X_test)
     out_file = open('tpot_metrics.txt', 'w')
     out_file.write(sklearn.metrics.classification_report(y_test, results))
@@ -181,33 +185,38 @@ def elbow_curve(data):
     sns_plot.savefig("pca_elbow.png")
 
 
+# def run_LDA(zeros, ones):
+# all_data, labels = make_all_data(zeros, ones)
+# lda = LDA(15)
+# lda.fit(all_data)
+# print(lda.get_params)
+
+
 def get_data(data_loc: str) -> tuple:
     data_folders = [
         os.path.join(data_loc, x) for x in os.listdir(data_loc)
         if 'cb46fd46' in x
     ]
-    out_zeros = None
-    out_ones = None
+    out_data = None
+    out_labels = None
 
     for data_folder in tqdm(data_folders):
-        zero_folder = os.path.join(data_folder, '0')
-        one_folder = os.path.join(data_folder, '1')
+        all_data_fol = os.path.join(data_folder, 'data')
+        label_folder = os.path.join(data_folder, 'labels')
 
-        if os.path.exists(zero_folder):
-            if out_zeros is None:
-                out_zeros = da.from_npy_stack(zero_folder)
-            else:
-                out_zeros = da.concatenate(
-                    [out_zeros, da.from_npy_stack(zero_folder)])
+        if out_data is None:
+            out_data = da.from_npy_stack(all_data_fol)
+        else:
+            out_data = da.concatenate(
+                [out_data, da.from_npy_stack(all_data_fol)])
 
-        if os.path.exists(one_folder):
-            if out_ones is None:
-                out_ones = da.from_npy_stack(one_folder)
-            else:
-                out_ones = da.concatenate(
-                    [out_ones, da.from_npy_stack(one_folder)])
+        if out_labels is None:
+            out_labels = da.from_npy_stack(label_folder)
+        else:
+            out_labels = da.concatenate(
+                [out_labels, da.from_npy_stack(label_folder)])
 
-    return out_zeros.compute(), out_ones.compute()
+    return out_data.compute(), out_labels.compute()
 
 
 def get_data_loc() -> str:
@@ -222,6 +231,7 @@ def get_data_loc() -> str:
 if __name__ == '__main__':
     DATA_LOC = get_data_loc()
     zeros, ones = get_data(DATA_LOC)
+    # run_LDA(zeros, ones)
     run_tpot(zeros, ones)
     # run_nn(zeros, ones)
     # elbow_curve(get_data(DATA_LOC))
