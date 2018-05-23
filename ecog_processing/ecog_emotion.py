@@ -96,7 +96,10 @@ def get_window_data(raw: mne.io.Raw,
     eventTimes = deque(sorted(list(eventTimes)))
     ecog_start_time = sorted(times)[0]
     all_data = None
+    test_data = None
     labels = None
+    all_out_times = None
+    test_out_times = None
     range_times = np.arange(all_times)
     split_range_times = np.array_split(
         range_times,
@@ -139,20 +142,25 @@ def get_window_data(raw: mne.io.Raw,
         num_times, has_been_annotated = clean_times(times, prev_pos, curr_pos,
                                                     end_pos)
 
-        if not has_been_annotated:
-            continue
+        # if not has_been_annotated:
+        # continue
 
-        num_events, _ = clean_times(eventTimes, prev_pos, curr_pos, end_pos)
+        if has_been_annotated:
+            num_events, _ = clean_times(eventTimes, prev_pos, curr_pos,
+                                        end_pos)
 
-        prob = num_events / num_times
-        has_event = prob >= EVENT_THRESHOLD
+            prob = num_events / num_times
+            has_event = prob >= EVENT_THRESHOLD
 
-        if return_plot_data:
-            plot_times.append(curr_pos)
-            plot_probs.append(prob)
-        label = 1 if has_event else 0
+            if return_plot_data:
+                plot_times.append(curr_pos)
+                plot_probs.append(prob)
+            label = 1 if has_event else 0
         # label = 1 if np.mean(curr_corrs) >= EVENT_THRESHOLD else 0
-        data, ecog_times = raw[picks, ecog_time_arr_prev:ecog_time_arr_end]
+        try:
+            data, ecog_times = raw[picks, ecog_time_arr_prev:ecog_time_arr_end]
+        except ValueError:
+            continue
         data = da.from_array(data, chunks=(1000, -1))
         psd = welch(data, 1000)
 
@@ -171,23 +179,28 @@ def get_window_data(raw: mne.io.Raw,
 
         # continue
 
-        if all_data is None:
-            all_data = da.from_array(
-                np.array([psd_data]), chunks=(10000, -1, -1))
+        if has_been_annotated:
+            all_data = make_array(all_data, psd_data, (10000, -1, -1))
+            labels = make_array(labels, label, (10000, ))
+            all_out_times = make_array(all_out_times, curr_pos.timestamp(),
+                                       (10000, ))
         else:
-            all_data = da.concatenate([all_data,
-                                       np.array([psd_data])]).compute()
-
-        if labels is None:
-            labels = da.from_array(np.array([label]), chunks=(10000, ))
-        else:
-            labels = da.concatenate([labels, np.array([label])])
+            test_data = make_array(test_data, psd_data, (10000, -1, -1))
+            test_out_times = make_array(test_out_times, curr_pos.timestamp(),
+                                        (10000, ))
     # plot_dates = matplotlib.dates.date2num(plot_times)
 
     if return_plot_data:
         return plot_times, plot_probs
     else:
-        return freqs, all_data, labels
+        return freqs, all_data, labels, all_out_times, test_data, test_out_times
+
+
+def make_array(og_array, addition, chunks):
+    if og_array is None:
+        return da.from_array(np.array([addition]), chunks=chunks).compute()
+    else:
+        return da.concatenate([og_array, np.array([addition])]).compute()
 
 
 def map_raw(filename: str):
@@ -229,6 +242,10 @@ def find_filename_data(au_emote_dict_loc,
     tqdm_num = (tqdm_num % 5) + 1
     au_emote_dict = json.load(open(au_emote_dict_loc))
     raw = map_raw(filename)
+
+    if raw is None:
+        return
+
     events, times, corr = get_events(filename, au_emote_dict, classifier_loc,
                                      real_time_file_loc)
 
@@ -246,7 +263,7 @@ def find_filename_data(au_emote_dict_loc,
                                    tqdm_num, filename, return_plot_data,
                                    event_delta_seconds)
 
-        freqs, temp_all_data, temp_labels = get_window_data(
+        freqs, temp_all_data, temp_labels, temp_times, test_data, test_times = get_window_data(
             raw, times, corr, picks, eventTimes, tqdm_num, filename,
             return_plot_data, event_delta_seconds)
 
@@ -263,16 +280,36 @@ def find_filename_data(au_emote_dict_loc,
 
             da.to_npy_stack(os.path.join(filename_out_dir, 'freqs'), freqs)
 
-            if temp_all_data is not None:
-                da.to_npy_stack(
-                    os.path.join(filename_out_dir, 'data'),
-                    da.from_array(temp_all_data, chunks=(10000, -1, -1)))
+            conditional_dump(temp_all_data,
+                             os.path.join(filename_out_dir, 'data'))
+            conditional_dump(temp_labels,
+                             os.path.join(filename_out_dir, 'labels'))
+            conditional_dump(temp_times, os.path.join(filename, 'times'))
+            conditional_dump(test_data,
+                             os.path.join(filename_out_dir, 'test_data'))
+            conditional_dump(test_times,
+                             os.path.join(filename_out_dir, 'test_times'))
 
-            if temp_labels is not None:
-                da.to_npy_stack(
-                    os.path.join(filename_out_dir, 'labels'),
-                    da.from_array(temp_labels, chunks=(10000, )))
+            # if temp_all_data is not None:
+            # da.to_npy_stack(
+            # os.path.join(filename_out_dir, 'data'),
+            # da.from_array(temp_all_data, chunks=(10000, -1, -1)))
+
+            # if temp_labels is not None:
+            # da.to_npy_stack(
+            # os.path.join(filename_out_dir, 'labels'),
+            # da.from_array(temp_labels, chunks=(10000, )))
+
+            # if temp_times is not None:
+            # da.to_npy_stack(
+            # os.path.join(filename_out_dir, 'times'),
+            # da.from_array(temp_times, chunks=(10000, )))
     out_q.put((filename, len(times)))
+
+
+def conditional_dump(array, location):
+    if array is not None:
+        da.to_npy_stack(location, array)
 
 
 def clean_filenames(filenames: list, au_dict: dict) -> list:

@@ -7,7 +7,6 @@ import argparse
 import h5py
 from tqdm import tqdm
 from tpot import TPOTRegressor, TPOTClassifier
-from sklearn.model_selection import train_test_split
 from torch import nn, optim
 import torch
 from torch.nn import functional as F
@@ -199,10 +198,12 @@ def get_data(data_loc: str) -> tuple:
     ]
     out_data = None
     out_labels = None
+    out_times = None
 
     for data_folder in tqdm(data_folders):
         all_data_fol = os.path.join(data_folder, 'data')
         label_folder = os.path.join(data_folder, 'labels')
+        times_folder = os.path.join(data_folder, 'times')
 
         if out_data is None:
             out_data = da.from_npy_stack(all_data_fol)
@@ -216,7 +217,13 @@ def get_data(data_loc: str) -> tuple:
             out_labels = da.concatenate(
                 [out_labels, da.from_npy_stack(label_folder)])
 
-    return out_data.compute(), out_labels.compute()
+        if out_times is None:
+            out_times = da.from_npy_stack(times_folder)
+        else:
+            out_times = da.concatenate(
+                [out_times, da.from_npy_stack(times_folder)])
+
+    return out_data.compute(), out_labels.compute(), out_times.comput()
 
 
 def get_data_loc() -> str:
@@ -230,8 +237,8 @@ def get_data_loc() -> str:
 
 if __name__ == '__main__':
     DATA_LOC = get_data_loc()
-    zeros, ones = get_data(DATA_LOC)
-    # run_LDA(zeros, ones)
-    run_tpot(zeros, ones)
-    # run_nn(zeros, ones)
+    data, labels = get_data(DATA_LOC)
+    # run_LDA(data, labels)
+    run_tpot(data, labels)
+    # run_nn(data, labels)
     # elbow_curve(get_data(DATA_LOC))
