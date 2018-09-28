@@ -1,3 +1,7 @@
+"""
+.. module::ecogClassifier
+    :synopsis: Various classification functions for classifying the ECoG data
+"""
 import os
 import dask.array as da
 import numpy as np
@@ -23,7 +27,19 @@ from sklearn.decomposition import LatentDirichletAllocation as LDA
 
 
 class ECoG_NN(nn.Module):
+    """
+    Neural network for ECoG classification
+    """
+
     def __init__(self, in_features, transfer_func):
+        """
+        Default constructor, makes a new NN
+
+        :param in_features: Number of input features
+        :type in_features: int
+        :param transfer_func: Transfer function
+        """
+
         super(ECoG_NN, self).__init__()
         self.hidden_list = []
         self.hidden_list.append(nn.Linear(in_features, 1000))
@@ -48,6 +64,13 @@ class ECoG_NN(nn.Module):
 
 
 def make_all_data(all_data, labels):
+    """
+    Helper function to create training data given zeros and ones
+
+    :param all_data: zeros data
+    :param labels: ones data
+    """
+
     # y = [0 for x in zeros]
     # y.extend([1 for x in ones])
     # all_data = da.concatenate([zeros, ones]).compute()
@@ -60,6 +83,14 @@ def make_all_data(all_data, labels):
 
 
 def run_tpot(zeros, ones):
+    """
+    Runs tpot on the given data
+
+    :param zeros: Zero data
+    :param ones: Ones data
+    :effects: Exports fitted pipeline in 'tpot_ecog_pipeline.py'
+    """
+
     all_data, y = make_all_data(zeros, ones)
     X_train, X_test, y_train, y_test = train_test_split(
         all_data, y, test_size=.1)
@@ -99,6 +130,13 @@ def pr_re(pred: np.ndarray, target: np.ndarray) -> tuple:
 
 
 def run_nn(zeros, ones):
+    """
+    Runs neural network on the given data
+
+    :param zeros: Zeros data
+    :param ones: Ones data
+    """
+
     num_epochs = 100
     all_data, y = make_all_data(zeros, ones)
     all_data = all_data.reshape(all_data.shape[0],
@@ -192,6 +230,11 @@ def elbow_curve(data):
 
 
 def get_data(data_loc: str) -> tuple:
+    """
+    Get saved dataframe data
+
+    :param data_loc: Location of patient dataframes
+    """
     data_folders = [
         os.path.join(data_loc, x) for x in os.listdir(data_loc)
         if 'cb46fd46' in x

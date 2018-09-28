@@ -1,3 +1,8 @@
+"""
+.. module:: ECoGEmotion
+    :synopsis: Module for reading ECoG files and adding to AU data to create overarching DataFrame
+"""
+
 import matplotlib
 matplotlib.use('agg')
 from threading import Thread
@@ -20,7 +25,7 @@ import matplotlib.pyplot as plt
 from glob import glob
 from chest import Chest
 from mne.io import read_raw_edf
-from welch import get_events
+from ecog_processing.welch import get_events
 from pathos.multiprocessing import ProcessingPool as Pool
 import functools
 from tqdm import tqdm
@@ -76,6 +81,20 @@ def get_window_data(raw: mne.io.Raw,
                     filename,
                     return_plot_data=False,
                     event_delta_seconds=1) -> tuple:
+    """
+    Get PSD data from ECoG around event times of choice
+
+    :param raw: Raw ECoG file
+    :param times: ECoG times
+    :param picks: Channel picks
+    :type picks: MNE picks format
+    :param eventTimes: Event times
+    :param tqdm_num: used in multiprocessing
+    :param filename: Name of video file for progress bar description
+    :param return_plot_data: Whether or not this is being used for a plot
+    :param event_delta_seconds: Seconds around an event to do PSD of
+    """
+
     ECOG_SAMPLING_FREQUENCY = 1000  # ECoG samples at a rate of 1000 Hz
     EVENT_DELTA_SECONDS = event_delta_seconds
     all_times = len(raw)
@@ -238,6 +257,19 @@ def find_filename_data(au_emote_dict_loc,
                        filename,
                        return_plot_data=False,
                        event_delta_seconds=1):
+    """
+    Find PSD data for given file and dump it
+
+    :param au_emote_dict_loc: location of au_emote_dict, in json format
+    :param classifier loc: location of pickled classifier
+    :param real_time_file_loc: location of real times
+    :param out_loc: Where to dump PSD data
+    :param out_q: Output queue for multiprocessing
+    :param filename: File to find data of
+    :param return_plot_data: Whether this is used for plotting
+    :param event_delta_seconds: Seconds around an event to do PSD of
+    """
+
     tqdm_num, filename = filename
     tqdm_num = (tqdm_num % 5) + 1
     au_emote_dict = json.load(open(au_emote_dict_loc))
@@ -271,9 +303,9 @@ def find_filename_data(au_emote_dict_loc,
             freqs = da.from_array(freqs, chunks=(100, ))
 
         if freqs is not None:
-            filename_out_dir = os.path.join(out_loc, 'classifier_data',
-                                            os.path.basename(filename).replace(
-                                                '.edf', ''))
+            filename_out_dir = os.path.join(
+                out_loc, 'classifier_data',
+                os.path.basename(filename).replace('.edf', ''))
 
             if not os.path.exists(filename_out_dir):
                 os.makedirs(filename_out_dir)
