@@ -1,0 +1,192 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>ecogClassifier &#8212; OpenMind  documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Welcome to OpenMind’s documentation!" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="module-ecog_processing.ecog_classifier">
+<span id="ecogclassifier"></span><h1>ecogClassifier<a class="headerlink" href="#module-ecog_processing.ecog_classifier" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="ecog_processing.ecog_classifier.ECoG_NN">
+<em class="property">class </em><code class="descclassname">ecog_processing.ecog_classifier.</code><code class="descname">ECoG_NN</code><span class="sig-paren">(</span><em>in_features</em>, <em>transfer_func</em><span class="sig-paren">)</span><a class="headerlink" href="#ecog_processing.ecog_classifier.ECoG_NN" title="Permalink to this definition">¶</a></dt>
+<dd><p>Neural network for ECoG classification</p>
+<dl class="method">
+<dt id="ecog_processing.ecog_classifier.ECoG_NN.forward">
+<code class="descname">forward</code><span class="sig-paren">(</span><em>x</em><span class="sig-paren">)</span><a class="headerlink" href="#ecog_processing.ecog_classifier.ECoG_NN.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="ecog_processing.ecog_classifier.get_data">
+<code class="descclassname">ecog_processing.ecog_classifier.</code><code class="descname">get_data</code><span class="sig-paren">(</span><em>data_loc: str</em><span class="sig-paren">)</span> &#x2192; tuple<a class="headerlink" href="#ecog_processing.ecog_classifier.get_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get saved dataframe data</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>data_loc</strong> – Location of patient dataframes</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="ecog_processing.ecog_classifier.make_all_data">
+<code class="descclassname">ecog_processing.ecog_classifier.</code><code class="descname">make_all_data</code><span class="sig-paren">(</span><em>all_data</em>, <em>labels</em><span class="sig-paren">)</span><a class="headerlink" href="#ecog_processing.ecog_classifier.make_all_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Helper function to create training data given zeros and ones</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>all_data</strong> – zeros data</li>
+<li><strong>labels</strong> – ones data</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="ecog_processing.ecog_classifier.run_nn">
+<code class="descclassname">ecog_processing.ecog_classifier.</code><code class="descname">run_nn</code><span class="sig-paren">(</span><em>zeros</em>, <em>ones</em><span class="sig-paren">)</span><a class="headerlink" href="#ecog_processing.ecog_classifier.run_nn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Runs neural network on the given data</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>zeros</strong> – Zeros data</li>
+<li><strong>ones</strong> – Ones data</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="ecog_processing.ecog_classifier.run_tpot">
+<code class="descclassname">ecog_processing.ecog_classifier.</code><code class="descname">run_tpot</code><span class="sig-paren">(</span><em>zeros</em>, <em>ones</em><span class="sig-paren">)</span><a class="headerlink" href="#ecog_processing.ecog_classifier.run_tpot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Runs tpot on the given data</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>zeros</strong> – Zero data</li>
+<li><strong>ones</strong> – Ones data</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Effects:</th><td class="field-body"><p class="first last">Exports fitted pipeline in ‘tpot_ecog_pipeline.py’</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">OpenMind</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ecogClassifier</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Welcome to OpenMind’s documentation!</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Gautham Velchuru.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.9</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.11</a>
+      
+      |
+      <a href="_sources/ecogClassifier.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
